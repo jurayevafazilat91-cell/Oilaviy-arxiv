@@ -1,56 +1,27 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
-/* Warm paper (light) and warm ink-black (dark); all text pairs meet WCAG AA 4.5:1. */
+/* Graphite dashboard: slate canvas, charcoal panels, mist cards, one lime signal.
+   Every text pair meets WCAG AA 4.5:1 on the surface it sits on. */
 :root {
-  --bg: #f6f3ee;
-  --surface: #fffdf9;
-  --surface-2: #eee8de;
-  --ink: #1d1a16;
-  --dim: #5e574e;
-  --line: #ddd4c7;
-  --accent: #8a5a1f;
-  --accent-ink: #ffffff;
-  --danger: #b42318;
-  --danger-ink: #ffffff;
-  --ok: #2f6b3a;
-  --ring: #8a5a1f;
-  --scrim: rgb(12 11 10 / 0.92);
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0c0b0a;
-    --surface: #151311;
-    --surface-2: #211e1a;
-    --ink: #f4f2ef;
-    --dim: #a8a19a;
-    --line: #2f2b27;
-    --accent: #e0b46c;
-    --accent-ink: #1a1206;
-    --danger: #f97066;
-    --danger-ink: #1a0503;
-    --ok: #7bc98a;
-    --ring: #e0b46c;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0c0b0a;
-  --surface: #151311;
-  --surface-2: #211e1a;
-  --ink: #f4f2ef;
-  --dim: #a8a19a;
-  --line: #2f2b27;
-  --accent: #e0b46c;
-  --accent-ink: #1a1206;
-  --danger: #f97066;
-  --danger-ink: #1a0503;
-  --ok: #7bc98a;
-  --ring: #e0b46c;
+  --bg: #5a5d64;          /* canvas */
+  --surface: #2e3138;     /* charcoal panel */
+  --surface-2: #23252a;   /* deep row / well */
+  --night: #1b1d21;
+  --mist: #c5c8cf;        /* light card */
+  --mist-ink: #121316;
+  --mist-dim: #4a4e56;
+  --slate: #6b7590;       /* secondary action */
+  --slate-ink: #ffffff;
+  --ink: #f3f4f6;
+  --dim: #d4d7dc;
+  --line: rgb(255 255 255 / 0.13);
+  --accent: #b6ee7f;      /* lime signal */
+  --accent-ink: #16181b;
+  --danger: #ffbdb3;
+  --danger-ink: #2a0a05;
+  --ok: #b6ee7f;
+  --ring: #b6ee7f;
+  --scrim: rgb(20 21 24 / 0.94);
   color-scheme: dark;
 }
 
@@ -58,6 +29,12 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-night: var(--night);
+  --color-mist: var(--mist);
+  --color-mist-ink: var(--mist-ink);
+  --color-mist-dim: var(--mist-dim);
+  --color-slate: var(--slate);
+  --color-slate-ink: var(--slate-ink);
   --color-ink: var(--ink);
   --color-dim: var(--dim);
   --color-line: var(--line);
@@ -68,7 +45,7 @@
   --color-ok: var(--ok);
   --color-ring: var(--ring);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
 }
@@ -89,16 +66,22 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 dialog::backdrop {
-  background: rgb(12 11 10 / 0.55);
+  background: rgb(20 21 24 / 0.6);
   backdrop-filter: blur(2px);
 }
 
 dialog.lightbox::backdrop {
   background: var(--scrim);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23d4d7dc' stroke-width='1.6' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
 }
 
 /* Off-screen month groups skip layout/paint: keeps huge galleries smooth. */
@@ -108,7 +91,7 @@ dialog.lightbox::backdrop {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--surface-2) 0%, var(--line) 50%, var(--surface-2) 100%);
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface) 50%, var(--surface-2) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -116,6 +99,20 @@ dialog.lightbox::backdrop {
 @keyframes shimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
+}
+
+/* Pixel-grid glow from the brand card: a few lit squares fading into the charcoal. */
+.pixels {
+  background-image:
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(rgb(182 238 127 / 0.35), rgb(182 238 127 / 0.35)),
+    linear-gradient(rgb(182 238 127 / 0.18), rgb(182 238 127 / 0.18)),
+    linear-gradient(rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.07)),
+    linear-gradient(rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.05)),
+    linear-gradient(rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.04));
+  background-size: 10px 10px;
+  background-repeat: no-repeat;
+  background-position: 82px 52px, 82px 36px, 66px 52px, 50px 20px, 98px 4px, 34px 36px;
 }
 
 @media (prefers-reduced-motion: reduce) {

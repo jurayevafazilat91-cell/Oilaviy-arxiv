@@ -134,11 +134,11 @@ export function Gallery({ initial, query, ctx, mode = "archive", albumId, autoOp
         </div>
       )}
 
-      <p role="status" aria-live="polite" className={cx("mb-4 rounded-xl bg-surface-2 px-4 py-2.5 text-sm", !notice && "sr-only")}>{notice}</p>
+      <p role="status" aria-live="polite" className={cx("mb-4 border-l-2 border-accent bg-surface px-4 py-2.5 text-sm", !notice && "sr-only")}>{notice}</p>
 
       {groups.map((g) => (
         <section key={g.key} className="cv-auto mb-8" aria-labelledby={`m-${g.key}`}>
-          <h2 id={`m-${g.key}`} className="sticky top-16 z-10 -mx-1 mb-3 bg-bg/90 px-1 py-2 font-serif text-xl backdrop-blur">{g.label}</h2>
+          <h2 id={`m-${g.key}`} className="sticky top-14 z-10 -mx-1 mb-3 flex items-center gap-3 bg-bg/90 px-1 py-2.5 font-display text-lg font-medium uppercase backdrop-blur md:top-0">{g.label}</h2>
           <ul className="grid grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-1.5 lg:grid-cols-6 xl:grid-cols-7">
             {g.items.map(({ item, idx }) => (
               <li key={item.id}>
@@ -209,7 +209,7 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
       aria-label={selecting ? `${label} — ${selected ? "tanlangan" : "tanlanmagan"}` : label}
       aria-pressed={selecting ? selected : undefined}
       role={selecting ? "button" : undefined}
-      className="group relative block aspect-square overflow-hidden rounded-[6px] bg-surface-2"
+      className="group relative block aspect-square overflow-hidden bg-surface-2"
     >
       {hasThumb ? (
         // eslint-disable-next-line @next/next/no-img-element -- authorized private files; next/image would cache them in a shared optimizer
@@ -218,7 +218,7 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
           alt=""
           loading="lazy"
           decoding="async"
-          className={cx("size-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.04]", selected && "scale-[0.92] rounded-md")}
+          className={cx("size-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.04]", selected && "scale-[0.92]")}
         />
       ) : item.status === "failed" ? (
         <span className="flex size-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-danger">
@@ -228,12 +228,12 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
         <span className="skeleton flex size-full items-center justify-center p-2 text-center text-xs text-dim">Qayta ishlanmoqda…</span>
       )}
       {item.kind === "video" && hasThumb && (
-        <span className="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-medium text-white">
+        <span className="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-full bg-night/80 px-2 py-0.5 text-[11px] font-medium text-ink">
           <Play className="size-3 fill-current" aria-hidden />{formatDuration(item.durationMs)}
         </span>
       )}
       {selecting && (
-        <span className={cx("absolute top-1.5 left-1.5 flex size-6 items-center justify-center rounded-full border-2 border-white shadow", selected ? "bg-accent" : "bg-black/30")}>
+        <span className={cx("absolute top-1.5 left-1.5 flex size-6 items-center justify-center border-2", selected ? "border-accent bg-accent" : "border-ink bg-night/40")}>
           {selected && <Check className="size-3.5 text-accent-ink" aria-hidden />}
         </span>
       )}
@@ -249,8 +249,8 @@ function SelectionBar(props: {
   const [album, setAlbum] = useState("");
   const none = count === 0;
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 md:bottom-6">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-3 shadow-2xl">
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 md:bottom-6 md:left-[272px] lg:left-[304px]">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 bg-surface p-3 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.6)]">
         <span className="px-2 text-sm font-medium" aria-live="polite">{count} ta tanlandi</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {mode !== "trash" && ctx.albums.length > 0 && (
@@ -276,9 +276,9 @@ function SelectionBar(props: {
 export function GallerySkeleton() {
   return (
     <div aria-busy="true" aria-label="Yuklanmoqda">
-      <div className="skeleton mb-3 h-7 w-40 rounded-md" />
+      <div className="skeleton mb-3 h-7 w-40" />
       <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-1.5 lg:grid-cols-6 xl:grid-cols-7">
-        {Array.from({ length: 18 }, (_, i) => <div key={i} className="skeleton aspect-square rounded-[6px]" />)}
+        {Array.from({ length: 18 }, (_, i) => <div key={i} className="skeleton aspect-square" />)}
       </div>
     </div>
   );

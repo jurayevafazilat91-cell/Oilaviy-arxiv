@@ -53,7 +53,7 @@ export function MediaInfo({ detail, error, ctx, onRetry, onClose, onRemoved, onU
     <div className="space-y-6 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-serif text-2xl leading-tight">{d.title || (d.kind === "video" ? "Video" : "Rasm")}</h2>
+          <h2 className="font-display text-xl font-medium uppercase leading-tight">{d.title || (d.kind === "video" ? "Video" : "Rasm")}</h2>
           <p className="mt-1 text-sm text-dim">{d.takenAt ? formatDate(d.takenAt, true) : `Yuklangan: ${formatDate(d.createdAt)}`}</p>
         </div>
         <IconButton label="Panelni yopish" onClick={onClose} className="-mt-2 -mr-2 lg:hidden"><X className="size-5" aria-hidden /></IconButton>
@@ -156,7 +156,7 @@ export function MediaInfo({ detail, error, ctx, onRetry, onClose, onRemoved, onU
       </dl>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-5">
-        <a href={`/api/media/${d.id}/original?download`} className="inline-flex min-h-9 items-center rounded-full border border-line px-3.5 text-sm font-medium hover:bg-surface-2">
+        <a href={`/api/media/${d.id}/original?download`} className="inline-flex min-h-9 items-center bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter] hover:brightness-110">
           Aslini yuklab olish
         </a>
         {d.canEdit && !d.deletedAt && (
@@ -205,7 +205,7 @@ function AiBlock({ d, ctx, act, busy }: {
   const [caption, setCaption] = useState(d.aiCaption ?? "");
   const [tags, setTags] = useState(d.aiTags.join(", "));
   return (
-    <section aria-labelledby="ai-h" className="space-y-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
+    <section aria-labelledby="ai-h" className="space-y-3 border-l-2 border-accent bg-surface-2 p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 id="ai-h" className="flex items-center gap-2 text-sm font-medium">
           <Sparkles className="size-4 text-accent" aria-hidden /> AI tavsifi

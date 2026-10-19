@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BookImage, Images, LogOut, Monitor, Moon, Network, Settings, Sun, Trash2, Upload } from "lucide-react";
+import { ArrowRight, BookImage, Images, LogOut, Network, Settings, Trash2, Upload, UserRound } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
-import { cx } from "./ui";
 
 const LINKS = [
   { href: "/", label: "Arxiv", icon: Images },
@@ -13,23 +12,102 @@ const LINKS = [
   { href: "/tree", label: "Oila daraxti", icon: Network },
 ];
 
+const KINDS = [
+  { value: null, label: "Hammasi" },
+  { value: "image", label: "Rasmlar" },
+  { value: "video", label: "Videolar" },
+];
+
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" || pathname.startsWith("/media") : pathname.startsWith(href));
 
-export function DesktopNav() {
-  const pathname = usePathname();
+/** Lime tile with a nested frame: a photo inside the family album. */
+export function Logo({ className = "" }: { className?: string }) {
   return (
-    <nav aria-label="Asosiy" className="hidden items-center gap-1 md:flex">
-      {LINKS.map((l) => (
-        <Link
-          key={l.href}
-          href={l.href}
-          aria-current={isActive(pathname, l.href) ? "page" : undefined}
-          className="rounded-full px-4 py-2 text-[15px] text-dim transition-colors hover:text-ink aria-[current=page]:bg-surface-2 aria-[current=page]:text-ink"
-        >
-          {l.label}
-        </Link>
-      ))}
-    </nav>
+    <Link href="/" className={`flex items-center gap-3 font-display text-[1.375rem] leading-none font-bold tracking-tight whitespace-nowrap uppercase ${className}`}>
+      <svg viewBox="0 0 32 32" className="size-8 shrink-0" aria-hidden>
+        <rect width="32" height="32" rx="5" fill="var(--accent)" />
+        <path d="M8 8h12v4h-8v8H8z" fill="var(--surface)" />
+        <rect x="14" y="14" width="10" height="10" fill="var(--surface)" />
+      </svg>
+      Oilaviy arxiv
+    </Link>
+  );
+}
+
+const iconSquare = "flex size-10 items-center justify-center bg-surface-2 text-ink transition-colors hover:bg-night aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink";
+
+export function SideNav({ canUpload, name, familyName }: { canUpload: boolean; name: string; familyName: string }) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const kind = params.get("kind");
+  return (
+    <div className="flex h-full flex-col overflow-y-auto px-6 py-6 [scrollbar-color:var(--line)_transparent] [scrollbar-width:thin] lg:px-7">
+      <Logo className="border-b border-line pb-6" />
+
+      <div className="flex items-center gap-2 border-b border-line py-5">
+        {canUpload && (
+          <Link href="/upload" aria-current={pathname === "/upload" ? "page" : undefined}
+            className="inline-flex min-h-10 items-center gap-2 bg-slate px-4 text-sm text-slate-ink transition-[filter] hover:brightness-110 aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink">
+            Yuklash <ArrowRight className="size-3.5" aria-hidden />
+          </Link>
+        )}
+        <div className="ml-auto flex gap-2">
+          <Link href="/trash" aria-label="Savat" title="Savat" aria-current={pathname === "/trash" ? "page" : undefined} className={iconSquare}>
+            <Trash2 className="size-[18px]" aria-hidden />
+          </Link>
+          <Link href="/settings" aria-label="Sozlamalar" title="Sozlamalar" aria-current={pathname === "/settings" ? "page" : undefined} className={iconSquare}>
+            <Settings className="size-[18px]" aria-hidden />
+          </Link>
+        </div>
+      </div>
+
+      <p className="mt-7 mb-4 font-display text-lg leading-none font-medium uppercase">Boʻlimlar</p>
+      <nav aria-label="Asosiy">
+        <ul className="space-y-3">
+          {LINKS.map(({ href, label, icon: Icon }) => {
+            const active = isActive(pathname, href);
+            return (
+              <li key={href}>
+                <Link href={href} aria-current={active ? "page" : undefined}
+                  className="group flex min-h-16 items-center gap-3.5 bg-surface-2 px-3 text-[15px] font-medium transition-colors hover:bg-night aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink">
+                  <span className="flex size-11 shrink-0 items-center justify-center bg-mist text-mist-ink group-aria-[current=page]:bg-surface group-aria-[current=page]:text-accent">
+                    <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                  </span>
+                  {label}
+                </Link>
+                {active && href === "/" && (
+                  <ul className="mt-3 mb-1 ml-3 border-l border-line">
+                    {KINDS.map((k) => (
+                      <li key={k.label}>
+                        <Link href={k.value ? `/?kind=${k.value}` : "/"} aria-current={pathname === "/" && kind === k.value ? "true" : undefined}
+                          className="relative flex min-h-9 items-center pl-6 text-[15px] text-dim transition-colors before:absolute before:top-1/2 before:left-0 before:w-3 before:border-t before:border-line hover:text-ink aria-[current=true]:text-accent aria-[current=true]:before:border-accent">
+                          {k.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="mt-auto pt-6">
+        <div className="bg-slate px-5 py-5 text-slate-ink">
+          <p className="truncate font-display text-[15px] font-semibold tracking-wide uppercase">{familyName}</p>
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            <UserRound className="size-4 shrink-0 text-accent" aria-hidden />
+            <span className="min-w-0 truncate">{name}</span>
+            <form action={logoutAction} className="ml-auto">
+              <button type="submit" aria-label="Chiqish" title="Chiqish" className="-mr-2 flex size-9 cursor-pointer items-center justify-center hover:bg-white/10">
+                <LogOut className="size-4" aria-hidden />
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -43,14 +121,14 @@ export function MobileNav({ canUpload }: { canUpload: boolean }) {
     { href: "/settings", label: "Sozlamalar", icon: Settings },
   ];
   return (
-    <nav aria-label="Asosiy" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Asosiy" className="fixed inset-x-0 bottom-0 z-40 bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
       <ul className="mx-auto flex max-w-lg">
         {items.map(({ href, label, icon: Icon }) => (
           <li key={href} className="flex-1">
             <Link
               href={href}
               aria-current={isActive(pathname, href) ? "page" : undefined}
-              className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] text-dim aria-[current=page]:text-accent"
+              className="relative flex min-h-15 flex-col items-center justify-center gap-1 text-[11px] text-dim before:absolute before:inset-x-3 before:top-0 before:h-0.5 aria-[current=page]:text-accent aria-[current=page]:before:bg-accent"
             >
               <Icon className="size-5" aria-hidden />
               {label}
@@ -62,30 +140,8 @@ export function MobileNav({ canUpload }: { canUpload: boolean }) {
   );
 }
 
-type Theme = "system" | "light" | "dark";
-function applyTheme(t: Theme) {
-  try {
-    if (t === "system") {
-      localStorage.removeItem("theme");
-      delete document.documentElement.dataset.theme;
-    } else {
-      localStorage.setItem("theme", t);
-      document.documentElement.dataset.theme = t;
-    }
-  } catch {}
-}
-
 export function UserMenu({ name, familyName }: { name: string; familyName: string }) {
   const [open, setOpen] = useState(false);
-  // Read lazily: the theme buttons only render after the menu is opened on the client.
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      const t = typeof window === "undefined" ? null : localStorage.getItem("theme");
-      return t === "light" || t === "dark" ? t : "system";
-    } catch {
-      return "system";
-    }
-  });
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,12 +156,7 @@ export function UserMenu({ name, familyName }: { name: string; familyName: strin
     };
   }, [open]);
 
-  const themes: { value: Theme; label: string; icon: typeof Sun }[] = [
-    { value: "system", label: "Tizim", icon: Monitor },
-    { value: "light", label: "Yorugʻ", icon: Sun },
-    { value: "dark", label: "Qorongʻi", icon: Moon },
-  ];
-
+  const item = "flex min-h-11 items-center gap-3 px-3 hover:bg-surface-2";
   return (
     <div ref={ref} className="relative">
       <button
@@ -113,44 +164,26 @@ export function UserMenu({ name, familyName }: { name: string; familyName: strin
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((o) => !o)}
-        className="flex size-11 cursor-pointer items-center justify-center rounded-full bg-surface-2 font-serif text-lg text-ink"
+        className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-slate font-display font-semibold text-slate-ink uppercase"
         aria-label={`Menyu: ${name}`}
       >
-        {name.slice(0, 1).toUpperCase()}
+        {name.slice(0, 1)}
       </button>
       {open && (
-        <div className="absolute right-0 top-13 z-50 w-64 rounded-2xl border border-line bg-surface p-2 shadow-xl">
-          <div className="px-3 py-2">
-            <p className="font-medium">{name}</p>
-            <p className="text-sm text-dim">{familyName}</p>
+        <div className="absolute top-12 right-0 z-50 w-64 bg-surface p-2 shadow-[0_24px_60px_-16px_rgb(0_0_0/0.7)] ring-1 ring-line">
+          <div className="bg-slate px-3 py-3 text-slate-ink">
+            <p className="truncate font-display text-sm font-semibold tracking-wide uppercase">{familyName}</p>
+            <p className="mt-1 truncate text-sm">{name}</p>
           </div>
-          <div className="my-1 border-t border-line" />
-          <Link onClick={() => setOpen(false)} href="/settings" className="flex min-h-11 items-center gap-3 rounded-xl px-3 hover:bg-surface-2">
+          <Link onClick={() => setOpen(false)} href="/settings" className={`mt-2 ${item}`}>
             <Settings className="size-4" aria-hidden /> Sozlamalar
           </Link>
-          <Link onClick={() => setOpen(false)} href="/trash" className="flex min-h-11 items-center gap-3 rounded-xl px-3 hover:bg-surface-2">
+          <Link onClick={() => setOpen(false)} href="/trash" className={item}>
             <Trash2 className="size-4" aria-hidden /> Savat
           </Link>
           <div className="my-1 border-t border-line" />
-          <fieldset className="px-3 py-2">
-            <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-dim">Mavzu</legend>
-            <div className="flex gap-1 rounded-full bg-surface-2 p-1">
-              {themes.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={theme === value}
-                  onClick={() => { setTheme(value); applyTheme(value); }}
-                  className={cx("flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full text-xs", theme === value ? "bg-surface text-ink shadow-sm" : "text-dim")}
-                >
-                  <Icon className="size-3.5" aria-hidden />{label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <div className="my-1 border-t border-line" />
           <form action={logoutAction}>
-            <button type="submit" className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left hover:bg-surface-2">
+            <button type="submit" className={`w-full cursor-pointer text-left ${item}`}>
               <LogOut className="size-4" aria-hidden /> Chiqish
             </button>
           </form>

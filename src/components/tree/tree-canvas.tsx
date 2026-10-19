@@ -148,7 +148,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="h-[min(70dvh,760px)] cursor-grab touch-none overflow-hidden rounded-2xl border border-line bg-surface select-none active:cursor-grabbing"
+        className="h-[min(70dvh,760px)] cursor-grab touch-none overflow-hidden border border-line bg-surface bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] bg-[size:22px_22px] select-none active:cursor-grabbing"
       >
         <svg width="100%" height="100%" aria-hidden={false}>
           <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
@@ -175,7 +175,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect(n.id))}
                 >
                   <title>{name}</title>
-                  <rect width={CARD_W} height={CARD_H} rx={14} fill="var(--bg)" stroke={selected ? "var(--accent)" : "var(--line)"} strokeWidth={selected ? 2.5 : 1.5} />
+                  <rect width={CARD_W} height={CARD_H} fill="var(--surface-2)" stroke={selected ? "var(--accent)" : "var(--line)"} strokeWidth={selected ? 2.5 : 1.5} />
                   {p.avatarMediaId ? (
                     <>
                       <clipPath id={`av-${n.id}`}><circle cx={36} cy={CARD_H / 2} r={22} /></clipPath>
@@ -185,7 +185,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
                   ) : (
                     <>
                       <circle cx={36} cy={CARD_H / 2} r={22} fill="var(--surface-2)" />
-                      <text x={36} y={CARD_H / 2 + 6} textAnchor="middle" fontSize={17} fill="var(--dim)" fontFamily="var(--font-serif)">
+                      <text x={36} y={CARD_H / 2 + 6} textAnchor="middle" fontSize={17} fill="var(--dim)" fontFamily="var(--font-display)" fontWeight={600}>
                         {p.firstName.slice(0, 1).toUpperCase()}
                       </text>
                     </>
@@ -199,7 +199,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
           </g>
         </svg>
       </div>
-      <div className="absolute right-3 bottom-3 flex flex-col gap-1 rounded-full border border-line bg-surface p-1 shadow-md">
+      <div className="absolute right-3 bottom-3 flex flex-col bg-surface-2">
         <IconButton label="Kattalashtirish" onClick={() => zoomAt(1.25)}><Plus className="size-5" aria-hidden /></IconButton>
         <IconButton label="Kichiklashtirish" onClick={() => zoomAt(0.8)}><Minus className="size-5" aria-hidden /></IconButton>
         <IconButton label="Ekranga sigʻdirish" onClick={fit}><Maximize2 className="size-4" aria-hidden /></IconButton>

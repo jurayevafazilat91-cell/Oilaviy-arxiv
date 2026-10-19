@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ImagePlus, SearchX } from "lucide-react";
 import { Gallery, GallerySkeleton } from "@/components/gallery/gallery";
 import { GalleryFilters } from "@/components/gallery/filters";
-import { EmptyState, PageTitle } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { galleryContext, toSearchParams } from "@/lib/media/context";
 import { filtersFromParams } from "@/lib/media/filters";
@@ -11,12 +11,9 @@ import { listMedia } from "@/lib/media/queries";
 
 export default function ArchivePage(props: PageProps<"/">) {
   return (
-    <>
-      <PageTitle>Arxiv</PageTitle>
-      <Suspense fallback={<GallerySkeleton />}>
-        <Archive searchParams={props.searchParams} />
-      </Suspense>
-    </>
+    <Suspense fallback={<GallerySkeleton />}>
+      <Archive searchParams={props.searchParams} />
+    </Suspense>
   );
 }
 
@@ -38,7 +35,7 @@ async function Archive({ searchParams }: { searchParams: PageProps<"/">["searchP
             icon={<ImagePlus />}
             title="Arxiv hali boʻsh"
             action={ctx.canUpload && (
-              <Link href="/upload" className="inline-flex min-h-11 items-center rounded-full bg-accent px-6 font-medium text-accent-ink">
+              <Link href="/upload" className="inline-flex min-h-11 items-center bg-accent px-6 font-medium text-accent-ink transition-[filter] hover:brightness-105">
                 Birinchi rasmlarni yuklash
               </Link>
             )}

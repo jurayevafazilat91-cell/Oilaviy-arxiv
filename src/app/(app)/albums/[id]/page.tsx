@@ -34,7 +34,7 @@ async function Album({ params }: { params: PageProps<"/albums/[id]">["params"] }
         sub={album.description || `${page.items.length}${page.nextCursor ? "+" : ""} ta`}
         actions={<>
           {canUpload(user) && (
-            <Link href={`/upload?album=${album.id}`} className="inline-flex min-h-9 items-center gap-2 rounded-full bg-accent px-3.5 text-sm font-medium text-accent-ink">
+            <Link href={`/upload?album=${album.id}`} className="inline-flex min-h-9 items-center gap-2 bg-accent px-3.5 text-sm font-medium text-accent-ink transition-[filter] hover:brightness-105">
               <Upload className="size-4" aria-hidden />Shu albomga yuklash
             </Link>
           )}

@@ -24,8 +24,8 @@ async function Invite({ params }: { params: PageProps<"/invite/[token]">["params
     : [];
   if (!inv) {
     return (
-      <div className="text-center">
-        <h1 className="mb-3 font-serif text-3xl">Havola yaroqsiz</h1>
+      <div>
+        <h1 className="mb-3 font-display text-2xl font-semibold uppercase">Havola yaroqsiz</h1>
         <p className="text-dim">Havola ishlatilgan yoki muddati oʻtgan. Oila adminidan yangisini soʻrang.</p>
         <Link href="/login" className="mt-6 inline-block font-medium text-accent underline underline-offset-4">Kirish sahifasi</Link>
       </div>
@@ -33,8 +33,8 @@ async function Invite({ params }: { params: PageProps<"/invite/[token]">["params
   }
   return (
     <>
-      <h1 className="mb-2 text-center font-serif text-4xl">{inv.kind === "reset" ? "Yangi parol" : inv.familyName}</h1>
-      <p className="mb-8 text-center text-dim">
+      <h1 className="mb-2 font-display text-3xl font-bold uppercase">{inv.kind === "reset" ? "Yangi parol" : inv.familyName}</h1>
+      <p className="mb-8 text-dim">
         {inv.kind === "reset" ? "Yangi parol oʻrnating. Boshqa qurilmalardagi sessiyalar yopiladi." : `Sizni “${ROLE_LABELS[inv.role!]}” sifatida taklif qilishdi.`}
       </p>
       <InviteForm token={token} kind={inv.kind} />

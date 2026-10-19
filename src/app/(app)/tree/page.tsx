@@ -11,7 +11,7 @@ export default function TreePage() {
   return (
     <>
       <PageTitle sub="Faqat tasdiqlangan qarindoshlik maʼlumotlari. AI qarindoshlikni taxmin qilmaydi.">Oila daraxti</PageTitle>
-      <Suspense fallback={<div className="skeleton h-[min(70dvh,760px)] rounded-2xl" aria-busy="true" />}>
+      <Suspense fallback={<div className="skeleton h-[min(70dvh,760px)]" aria-busy="true" />}>
         <Tree />
       </Suspense>
     </>

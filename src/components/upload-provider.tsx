@@ -217,7 +217,7 @@ function UploadIndicator({ items }: { items: UploadItem[] }) {
   return (
     <Link
       href="/upload"
-      className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex items-center gap-3 rounded-full border border-line bg-surface px-4 py-2.5 text-sm shadow-lg md:bottom-6"
+      className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex items-center gap-3 bg-surface px-4 py-2.5 text-sm shadow-[0_16px_40px_-12px_rgb(0_0_0/0.6)] md:bottom-6"
     >
       <UploadCloud className="size-4 text-accent" aria-hidden />
       <span role="status">{active.length} ta fayl · {Math.round((done / total) * 100)}%</span>

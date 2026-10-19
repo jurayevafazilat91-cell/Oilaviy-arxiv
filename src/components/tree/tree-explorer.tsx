@@ -41,10 +41,10 @@ export function TreeExplorer({ people, relationships, canEdit, isAdmin, members 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Koʻrinish" className="flex rounded-full bg-surface-2 p-1">
+        <div role="group" aria-label="Koʻrinish" className="flex bg-surface-2">
           {([["tree", "Daraxt", Network], ["list", "Roʻyxat", List]] as const).map(([v, label, Icon]) => (
             <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
-              className={cx("flex min-h-9 cursor-pointer items-center gap-2 rounded-full px-4 text-sm", view === v ? "bg-surface text-ink shadow-sm" : "text-dim hover:text-ink")}>
+              className={cx("flex min-h-11 cursor-pointer items-center gap-2 px-4 text-sm font-medium", view === v ? "bg-accent text-accent-ink" : "text-dim hover:text-ink")}>
               <Icon className="size-4" aria-hidden />{label}
             </button>
           ))}
@@ -79,7 +79,7 @@ export function TreeExplorer({ people, relationships, canEdit, isAdmin, members 
               onClose={() => setSelectedId(null)}
             />
           ) : (
-            <aside className="hidden rounded-2xl border border-dashed border-line p-6 text-center text-dim lg:block">
+            <aside className="hidden border border-dashed border-line p-6 text-center text-dim lg:block lg:self-start">
               Batafsil koʻrish uchun odamni tanlang.
             </aside>
           )}
@@ -102,13 +102,13 @@ function PeopleList({ people, relationships, byId, onSelect, selectedId }: {
 }) {
   const names = (ids: string[]) => ids.map((i) => byId.get(i)).filter(Boolean).map((p) => personName(p!)).join(", ");
   return (
-    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+    <ul className="divide-y divide-line overflow-hidden bg-surface">
       {people.map((p) => {
         const r = relationsOf(p.id, relationships);
         return (
           <li key={p.id}>
             <button type="button" onClick={() => onSelect(p.id)} aria-pressed={selectedId === p.id}
-              className="w-full cursor-pointer px-4 py-3 text-left hover:bg-surface-2 aria-pressed:bg-accent/8">
+              className="w-full cursor-pointer px-4 py-3 text-left hover:bg-surface-2 aria-pressed:bg-accent aria-pressed:text-accent-ink [&[aria-pressed=true]_.text-dim]:text-accent-ink/75">
               <span className="font-medium">{personName(p)}</span>
               {lifeSpan(p) && <span className="ml-2 text-sm text-dim">{lifeSpan(p)}</span>}
               <span className="mt-0.5 block text-sm text-dim">
@@ -142,10 +142,10 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
 
 
   return (
-    <aside aria-label={personName(p)} className="space-y-5 rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-24 lg:self-start">
+    <aside aria-label={personName(p)} className="space-y-5 bg-surface p-5 lg:sticky lg:top-6 lg:self-start">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="font-serif text-3xl leading-tight">{personName(p)}</h2>
+          <h2 className="font-display text-2xl font-semibold uppercase leading-tight">{personName(p)}</h2>
           {p.patronymic && <p className="text-dim">{p.patronymic}</p>}
         </div>
         <IconButton label="Yopish" onClick={onClose} className="-mt-2 -mr-2"><X className="size-5" aria-hidden /></IconButton>
@@ -162,7 +162,7 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
       <Notice>{error}</Notice>
 
       <div className="flex flex-wrap gap-2">
-        <Link href={`/people/${p.id}`} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-surface-2">
+        <Link href={`/people/${p.id}`} className="inline-flex min-h-9 items-center gap-2 bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter] hover:brightness-110">
           <Images className="size-4" aria-hidden />Rasmlari
         </Link>
         {canEdit && <Button size="sm" onClick={onEdit}><Pencil className="size-4" aria-hidden />Tahrirlash</Button>}

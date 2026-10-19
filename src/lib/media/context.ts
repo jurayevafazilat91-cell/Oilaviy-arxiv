@@ -9,7 +9,8 @@ export type GalleryContext = {
   aiEnabled: boolean;
   albums: { id: string; title: string }[];
   people: { id: string; name: string }[];
-  years: number[];
+  /** Newest first, with the number of files in each year. */
+  years: { year: number; count: number }[];
 };
 
 /** Lists the pickers and permissions the gallery UI needs; all scoped to the user's family. */
@@ -18,9 +19,9 @@ export async function galleryContext(user: CurrentUser): Promise<GalleryContext>
     sql<{ id: string; title: string }[]>`select id, title from albums where family_id = ${user.familyId} order by lower(title)`,
     sql<{ id: string; name: string }[]>`
       select id, trim(first_name || ' ' || last_name) as name from people where family_id = ${user.familyId} order by first_name, last_name`,
-    sql<{ year: number }[]>`
-      select distinct extract(year from coalesce(taken_at, created_at) at time zone 'Asia/Tashkent')::int as year
-      from media where family_id = ${user.familyId} and deleted_at is null order by year desc`,
+    sql<{ year: number; count: number }[]>`
+      select extract(year from coalesce(taken_at, created_at) at time zone 'Asia/Tashkent')::int as year, count(*)::int as count
+      from media where family_id = ${user.familyId} and deleted_at is null group by 1 order by 1 desc`,
     sql<{ aiEnabled: boolean }[]>`select ai_enabled from families where id = ${user.familyId}`,
   ]);
   return {
@@ -30,7 +31,7 @@ export async function galleryContext(user: CurrentUser): Promise<GalleryContext>
     aiEnabled: Boolean(family[0]?.aiEnabled && env().GEMINI_API_KEY),
     albums,
     people,
-    years: years.map((y) => y.year),
+    years: [...years],
   };
 }
 

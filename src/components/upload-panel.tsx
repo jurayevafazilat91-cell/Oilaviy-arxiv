@@ -44,12 +44,12 @@ export function UploadPanel({ albums, maxImageMb, maxVideoMb, defaultAlbum }: {
           onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files); }}
           className={cx(
-            "flex flex-col items-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors",
-            drag ? "border-accent bg-accent/5" : "border-line bg-surface",
+            "flex flex-col items-center border-2 border-dashed px-6 py-12 text-center transition-colors",
+            drag ? "border-accent bg-surface-2" : "border-line bg-surface",
           )}
         >
           <UploadCloud className="mb-4 size-10 text-accent" aria-hidden />
-          <p className="font-serif text-2xl">Fayllarni shu yerga tashlang</p>
+          <p className="font-display text-xl font-medium uppercase">Fayllarni shu yerga tashlang</p>
           <p className="mt-1 mb-5 text-sm text-dim">yoki kompyuter/telefondan tanlang</p>
           <Button variant="primary" onClick={() => input.current?.click()}>Fayllarni tanlash</Button>
           <input ref={input} type="file" multiple accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => pick(e.target.files)} />
@@ -64,17 +64,17 @@ export function UploadPanel({ albums, maxImageMb, maxVideoMb, defaultAlbum }: {
 
       <section aria-labelledby="queue-h">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 id="queue-h" className="font-serif text-2xl">Navbat</h2>
+          <h2 id="queue-h" className="font-display text-xl font-medium uppercase">Navbat</h2>
           {finished > 0 && <Button size="sm" variant="ghost" onClick={clearFinished}>Tugaganlarni tozalash</Button>}
         </div>
         {items.length === 0 ? (
-          <p className="rounded-2xl border border-line bg-surface px-5 py-10 text-center text-dim">Hali fayl tanlanmagan.</p>
+          <p className="bg-surface px-5 py-10 text-center text-dim">Hali fayl tanlanmagan.</p>
         ) : (
           <>
             <p className="mb-3 text-sm text-dim" aria-live="polite">
               {summary.done} ta saqlandi{summary.dup ? `, ${summary.dup} ta dublikat` : ""}{summary.failed ? `, ${summary.failed} ta xato` : ""} · jami {items.length}
             </p>
-            <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+            <ul className="divide-y divide-line overflow-hidden bg-surface">
               {items.map((item) => <Row key={item.key} item={item} onCancel={() => cancel(item.key)} onRetry={() => retry(item.key)} />)}
             </ul>
           </>
@@ -98,7 +98,7 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
   const pct = Math.round(item.progress * 100);
   return (
     <li className="flex items-center gap-3 p-3">
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-2">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden bg-surface-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
         {item.preview ? <img src={item.preview} alt="" className="size-full object-cover" /> : <FileVideo className="size-6 text-dim" aria-hidden />}
       </div>
@@ -118,9 +118,9 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={pct}
-            className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"
+            className="mt-2 h-1.5 overflow-hidden bg-surface-2"
           >
-            <div className={cx("h-full rounded-full bg-accent transition-[width] duration-300", item.status === "processing" && "animate-pulse")} style={{ width: `${pct}%` }} />
+            <div className={cx("h-full bg-accent transition-[width] duration-300", item.status === "processing" && "animate-pulse")} style={{ width: `${pct}%` }} />
           </div>
         )}
       </div>
@@ -131,7 +131,7 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
         <IconButton label={`${item.file.name}: qayta urinish`} onClick={onRetry}><RotateCcw className="size-5" aria-hidden /></IconButton>
       )}
       {(item.status === "done" || item.status === "duplicate") && item.mediaId && (
-        <Link href={`/media/${item.mediaId}`} className="rounded-full px-3 py-2 text-sm font-medium text-accent hover:bg-surface-2">Koʻrish</Link>
+        <Link href={`/media/${item.mediaId}`} className="px-3 py-2 text-sm font-medium text-accent hover:bg-surface-2">Koʻrish</Link>
       )}
     </li>
   );

@@ -32,7 +32,7 @@ export function ProfileSection({ name }: { name: string }) {
   const [pw, pwAction, p2] = useActionState(changePasswordAction, undefined);
   return (
     <Card>
-      <h2 className="mb-4 font-serif text-2xl">Profil</h2>
+      <h2 className="mb-4 font-display text-xl font-medium uppercase">Profil</h2>
       <div className="grid gap-8 md:grid-cols-2">
         <form action={profileAction} className="space-y-3">
           <Field label="Ism">{(id) => <Input id={id} name="name" defaultValue={name} required maxLength={80} />}</Field>
@@ -73,7 +73,7 @@ export function TelegramSection({ linked, linkedAt, botConfigured, canUpload, ma
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-serif text-2xl"><Send className="size-5 text-accent" aria-hidden />Telegram</h2>
+        <h2 className="flex items-center gap-2 font-display text-xl font-medium uppercase"><Send className="size-5 text-accent" aria-hidden />Telegram</h2>
         {linked ? <Badge tone="ok">Ulangan · {formatDate(linkedAt)}</Badge> : <Badge>Ulanmagan</Badge>}
       </div>
       <ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-dim">
@@ -88,12 +88,12 @@ export function TelegramSection({ linked, linkedAt, botConfigured, canUpload, ma
       ) : (
         <div className="space-y-4">
           {code && left > 0 && (
-            <div className="space-y-3 rounded-xl bg-surface-2 p-4">
+            <div className="space-y-3 bg-surface-2 p-4">
               <p className="text-sm">Botni ochib “Start” tugmasini bosing yoki botga quyidagini yuboring:</p>
               <CopyField value={`/start ${code.code}`} label="Ulanish buyrugʻi" />
               <div className="flex flex-wrap items-center gap-3">
                 <a href={code.deepLink} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-5 font-medium text-accent-ink">
+                  className="inline-flex min-h-11 items-center gap-2 bg-accent px-5 font-medium text-accent-ink transition-[filter] hover:brightness-105">
                   <ExternalLink className="size-4" aria-hidden />Telegram’da ochish
                 </a>
                 <span className="text-sm text-dim" aria-live="polite">Kod {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")} amal qiladi, bir marta ishlatiladi</span>
@@ -139,11 +139,11 @@ export function AiSection({ isOwner, enabled, consentAt, keyConfigured, model }:
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-serif text-2xl"><Sparkles className="size-5 text-accent" aria-hidden />AI yordamchi</h2>
+        <h2 className="flex items-center gap-2 font-display text-xl font-medium uppercase"><Sparkles className="size-5 text-accent" aria-hidden />AI yordamchi</h2>
         {enabled ? <Badge tone="ok">Yoqilgan · {formatDate(consentAt)}</Badge> : <Badge>Oʻchiq</Badge>}
       </div>
       <p className="mb-3 text-[15px]">Yoqilsa, yangi rasmlar uchun oʻzbekcha tavsif va teglar yaratiladi, “AI qidiruv” tabiiy tildagi soʻrovni tushunadi. Arxivning qolgan qismi AIʼsiz ham toʻliq ishlaydi.</p>
-      <div className="mb-4 space-y-2 rounded-xl border border-line bg-surface-2 p-4 text-sm">
+      <div className="mb-4 space-y-2 border border-line bg-surface-2 p-4 text-sm">
         <p className="font-medium">Nima yuboriladi va qayerga</p>
         <ul className="list-disc space-y-1 pl-5 text-dim">
           <li>Google Gemini API’ga (model: <code>{model}</code>) rasmning kichiklashtirilgan nusxasi (≤1024px), EXIF/GPS’siz. Asl fayl va videolar yuborilmaydi.</li>
@@ -194,7 +194,7 @@ export function FamilySection({ familyName, members, invites, me, myRole }: {
 
   return (
     <Card>
-      <h2 className="mb-4 font-serif text-2xl">Oila va aʼzolar</h2>
+      <h2 className="mb-4 font-display text-xl font-medium uppercase">Oila va aʼzolar</h2>
       <form className="mb-6 flex max-w-md items-end gap-2" onSubmit={async (e) => {
         e.preventDefault();
         const r = await renameFamilyAction(String(new FormData(e.currentTarget).get("family")));
@@ -205,7 +205,7 @@ export function FamilySection({ familyName, members, invites, me, myRole }: {
         <Button type="submit" className="min-h-11">{saved ? "Saqlandi" : "Saqlash"}</Button>
       </form>
 
-      <div className="mb-6 space-y-3 rounded-xl bg-surface-2 p-4">
+      <div className="mb-6 space-y-3 bg-surface-2 p-4">
         <h3 className="font-medium">Taklif havolasi</h3>
         <p className="text-sm text-dim">Havola 7 kun amal qiladi va faqat bir marta ishlatiladi. Uni ishonchli kanal orqali yuboring.</p>
         <div className="flex flex-wrap items-end gap-2">
@@ -231,7 +231,7 @@ export function FamilySection({ familyName, members, invites, me, myRole }: {
 
       <Notice>{error}</Notice>
 
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <caption className="sr-only">Oila aʼzolari</caption>
           <thead className="text-dim">

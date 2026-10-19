@@ -68,7 +68,7 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
   return (
     <dialog
       ref={dialog}
-      className="lightbox fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none bg-transparent p-0 text-[#f4f2ef]"
+      className="lightbox fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none bg-transparent p-0 text-ink"
       aria-label={item.title || "Media koʻrish"}
       onClose={onClose}
       onKeyDown={onKeyDown}
@@ -76,23 +76,23 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
       <div className="flex h-full">
         <div className="relative flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-5">
-            <p className="min-w-0 flex-1 truncate text-sm text-white/70" aria-live="polite">
+            <p className="min-w-0 flex-1 truncate text-sm text-dim" aria-live="polite">
               {index + 1} / {items.length}{item.title ? ` · ${item.title}` : ""}
             </p>
             <a
               href={`/api/media/${item.id}/original?download`}
-              className="inline-flex size-11 items-center justify-center rounded-full hover:bg-white/10"
+              className="inline-flex size-11 items-center justify-center hover:bg-white/10"
               aria-label="Asl faylni yuklab olish"
               title="Asl faylni yuklab olish"
             >
               <Download className="size-5" aria-hidden />
             </a>
             <button type="button" onClick={() => setInfoOpen((o) => !o)} aria-pressed={infoOpen} aria-label="Maʼlumot" title="Maʼlumot (i)"
-              className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full hover:bg-white/10 aria-pressed:bg-white/15">
+              className="inline-flex size-11 cursor-pointer items-center justify-center hover:bg-white/10 aria-pressed:bg-accent aria-pressed:text-accent-ink">
               <Info className="size-5" aria-hidden />
             </button>
             <button type="button" onClick={() => dialog.current?.close()} aria-label="Yopish" title="Yopish (Esc)" autoFocus
-              className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full hover:bg-white/10">
+              className="inline-flex size-11 cursor-pointer items-center justify-center hover:bg-white/10">
               <X className="size-6" aria-hidden />
             </button>
           </div>
@@ -125,14 +125,14 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
                     preload="metadata"
                     poster={hasPreview ? `/api/media/${item.id}/preview` : undefined}
                     src={`/api/media/${item.id}/${item.variants.includes("playback") ? "playback" : "original"}`}
-                    className="max-h-full max-w-full rounded-sm bg-black"
+                    className="max-h-full max-w-full bg-night"
                   >
                     Brauzeringiz bu videoni koʻrsata olmaydi. <a href={`/api/media/${item.id}/original?download`}>Yuklab oling</a>.
                   </video>
                 ) : hasPreview ? (
                   <ProgressiveImage id={item.id} alt={detail?.aiCaption ?? item.title ?? ""} />
                 ) : (
-                  <p className="text-white/70">{item.status === "failed" ? `Qayta ishlashda xato: ${item.error ?? ""}` : "Qayta ishlanmoqda…"}</p>
+                  <p className="text-dim">{item.status === "failed" ? `Qayta ishlashda xato: ${item.error ?? ""}` : "Qayta ishlanmoqda…"}</p>
                 )}
               </motion.div>
             </AnimatePresence>
@@ -145,7 +145,7 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
         {infoOpen && (
           <aside
             aria-label="Media maʼlumotlari"
-            className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface text-ink lg:static lg:max-h-none lg:w-[380px] lg:rounded-none lg:border-t-0 lg:border-l"
+            className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] overflow-y-auto border-t border-line bg-surface text-ink lg:static lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-l"
           >
             <MediaInfo
               key={item.id}
@@ -173,7 +173,7 @@ function NavButton({ side, disabled, onClick }: { side: "left" | "right"; disabl
       disabled={disabled}
       aria-label={side === "left" ? "Oldingi" : "Keyingi"}
       className={cx(
-        "absolute top-1/2 hidden size-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/40 transition-opacity hover:bg-black/60 disabled:pointer-events-none disabled:opacity-0 sm:flex",
+        "absolute top-1/2 hidden size-12 -translate-y-1/2 cursor-pointer items-center justify-center bg-surface/70 transition-[opacity,background-color] hover:bg-surface disabled:pointer-events-none disabled:opacity-0 sm:flex",
         side === "left" ? "left-3" : "right-3",
       )}
     >
