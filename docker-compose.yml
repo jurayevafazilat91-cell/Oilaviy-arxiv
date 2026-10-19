@@ -1,0 +1,52 @@
+# Production on one VPS. Put a TLS reverse proxy (e.g. Caddy) in front of 127.0.0.1:3000.
+# Secrets live in .env next to this file (see .env.example); never commit it.
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env da kerak}
+      POSTGRES_DB: oilaviy
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oilaviy"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/oilaviy
+      STORAGE_DIR: /data/storage
+      TMP_DIR: /data/tmp
+      TELEGRAM_LOCAL_FILES_DIR: /var/lib/telegram-bot-api
+    volumes:
+      - appdata:/data
+      - tgfiles:/var/lib/telegram-bot-api:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Optional: lets the bot receive files up to 2000 MB (cloud Bot API: 20 MB).
+  # Start with: docker compose --profile telegram-local up -d
+  # shortcut: community image; pin a digest you have reviewed before production use.
+  telegram-bot-api:
+    profiles: ["telegram-local"]
+    image: aiogram/telegram-bot-api:latest
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+      TELEGRAM_LOCAL: "1"
+    volumes:
+      - tgfiles:/var/lib/telegram-bot-api
+
+volumes:
+  pgdata:
+  appdata:
+  tgfiles:

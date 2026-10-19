@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Warm paper (light) and warm ink-black (dark); all text pairs meet WCAG AA 4.5:1. */
+:root {
+  --bg: #f6f3ee;
+  --surface: #fffdf9;
+  --surface-2: #eee8de;
+  --ink: #1d1a16;
+  --dim: #5e574e;
+  --line: #ddd4c7;
+  --accent: #8a5a1f;
+  --accent-ink: #ffffff;
+  --danger: #b42318;
+  --danger-ink: #ffffff;
+  --ok: #2f6b3a;
+  --ring: #8a5a1f;
+  --scrim: rgb(12 11 10 / 0.92);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0b0a;
+    --surface: #151311;
+    --surface-2: #211e1a;
+    --ink: #f4f2ef;
+    --dim: #a8a19a;
+    --line: #2f2b27;
+    --accent: #e0b46c;
+    --accent-ink: #1a1206;
+    --danger: #f97066;
+    --danger-ink: #1a0503;
+    --ok: #7bc98a;
+    --ring: #e0b46c;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c0b0a;
+  --surface: #151311;
+  --surface-2: #211e1a;
+  --ink: #f4f2ef;
+  --dim: #a8a19a;
+  --line: #2f2b27;
+  --accent: #e0b46c;
+  --accent-ink: #1a1206;
+  --danger: #f97066;
+  --danger-ink: #1a0503;
+  --ok: #7bc98a;
+  --ring: #e0b46c;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-ok: var(--ok);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+html {
+  background: var(--bg);
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+dialog::backdrop {
+  background: rgb(12 11 10 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+dialog.lightbox::backdrop {
+  background: var(--scrim);
+}
+
+/* Off-screen month groups skip layout/paint: keeps huge galleries smooth. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--line) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
