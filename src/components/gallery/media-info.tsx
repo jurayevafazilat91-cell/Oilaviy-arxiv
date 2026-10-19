@@ -100,10 +100,10 @@ export function MediaInfo({ detail, error, ctx, onRetry, onClose, onRemoved, onU
         <div className="flex flex-wrap gap-1.5">
           {d.albums.length === 0 && <p className="text-sm text-dim">Albomda emas</p>}
           {d.albums.map((a) => (
-            <span key={a.id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm">
+            <span key={a.id} className="inline-flex animate-pop items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm">
               <Link href={`/albums/${a.id}`} className="hover:underline">{a.title}</Link>
               {ctx.canUpload && (
-                <button type="button" aria-label={`${a.title} albomidan olib tashlash`} className="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-line"
+                <button type="button" aria-label={`${a.title} albomidan olib tashlash`} className="flex size-7 cursor-pointer items-center justify-center rounded-full transition-[background-color,scale] duration-150 ease-out hover:bg-line active:scale-90"
                   onClick={() => act("album", () => removeFromAlbumAction(a.id, [d.id])).then((ok) => ok && onUpdated({}))}>
                   <X className="size-3.5" aria-hidden />
                 </button>
@@ -126,10 +126,10 @@ export function MediaInfo({ detail, error, ctx, onRetry, onClose, onRemoved, onU
         <div className="flex flex-wrap gap-1.5">
           {d.people.length === 0 && <p className="text-sm text-dim">Hech kim belgilanmagan</p>}
           {d.people.map((p) => (
-            <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm">
+            <span key={p.id} className="inline-flex animate-pop items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm">
               <Link href={`/people/${p.id}`} className="hover:underline">{p.name}</Link>
               {ctx.canUpload && (
-                <button type="button" aria-label={`${p.name} belgisini olib tashlash`} className="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-line"
+                <button type="button" aria-label={`${p.name} belgisini olib tashlash`} className="flex size-7 cursor-pointer items-center justify-center rounded-full transition-[background-color,scale] duration-150 ease-out hover:bg-line active:scale-90"
                   onClick={() => act("person", () => tagPersonAction(d.id, p.id, false)).then((ok) => ok && onUpdated({}))}>
                   <X className="size-3.5" aria-hidden />
                 </button>
@@ -156,7 +156,7 @@ export function MediaInfo({ detail, error, ctx, onRetry, onClose, onRemoved, onU
       </dl>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-5">
-        <a href={`/api/media/${d.id}/original?download`} className="inline-flex min-h-9 items-center bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter] hover:brightness-110">
+        <a href={`/api/media/${d.id}/original?download`} className="inline-flex min-h-9 items-center bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter,scale] duration-150 ease-out hover:brightness-110 active:scale-[0.97]">
           Aslini yuklab olish
         </a>
         {d.canEdit && !d.deletedAt && (

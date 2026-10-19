@@ -134,7 +134,10 @@ export function Gallery({ initial, query, ctx, mode = "archive", albumId, autoOp
         </div>
       )}
 
-      <p role="status" aria-live="polite" className={cx("mb-4 border-l-2 border-accent bg-surface px-4 py-2.5 text-sm", !notice && "sr-only")}>{notice}</p>
+      <p role="status" aria-live="polite" className={cx("mb-4 border-l-2 border-accent bg-surface px-4 py-2.5 text-sm", !notice && "sr-only")}>
+        {/* Keyed so each new message replays the entrance; the live region itself stays put for screen readers. */}
+        <span key={notice} className="block animate-rise">{notice}</span>
+      </p>
 
       {groups.map((g) => (
         <section key={g.key} className="cv-auto mb-8" aria-labelledby={`m-${g.key}`}>
@@ -209,7 +212,7 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
       aria-label={selecting ? `${label} — ${selected ? "tanlangan" : "tanlanmagan"}` : label}
       aria-pressed={selecting ? selected : undefined}
       role={selecting ? "button" : undefined}
-      className="group relative block aspect-square overflow-hidden bg-surface-2"
+      className="group relative block aspect-square overflow-hidden bg-surface-2 transition-[scale] duration-150 ease-out active:scale-[0.98]"
     >
       {hasThumb ? (
         // eslint-disable-next-line @next/next/no-img-element -- authorized private files; next/image would cache them in a shared optimizer
@@ -218,7 +221,10 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
           alt=""
           loading="lazy"
           decoding="async"
-          className={cx("size-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.04]", selected && "scale-[0.92]")}
+          // Cached images can finish before hydration, when onLoad never fires: mark them on mount too.
+          ref={(el) => { if (el?.complete) el.dataset.loaded = ""; }}
+          onLoad={(e) => { e.currentTarget.dataset.loaded = ""; }}
+          className={cx("fade-load size-full object-cover group-hover:scale-[1.04]", selected && "scale-[0.9]!")}
         />
       ) : item.status === "failed" ? (
         <span className="flex size-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-danger">
@@ -233,8 +239,8 @@ function Tile({ item, selecting, selected, onActivate }: { item: MediaItem; sele
         </span>
       )}
       {selecting && (
-        <span className={cx("absolute top-1.5 left-1.5 flex size-6 items-center justify-center border-2", selected ? "border-accent bg-accent" : "border-ink bg-night/40")}>
-          {selected && <Check className="size-3.5 text-accent-ink" aria-hidden />}
+        <span className={cx("absolute top-1.5 left-1.5 flex size-6 items-center justify-center border-2 transition-colors duration-150", selected ? "border-accent bg-accent" : "border-ink bg-night/40")}>
+          {selected && <Check className="size-3.5 animate-pop text-accent-ink" strokeWidth={3} aria-hidden />}
         </span>
       )}
     </a>
@@ -249,7 +255,7 @@ function SelectionBar(props: {
   const [album, setAlbum] = useState("");
   const none = count === 0;
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 md:bottom-6 md:left-[272px] lg:left-[304px]">
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 animate-rise px-3 md:bottom-6 md:left-[272px] lg:left-[304px]">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 bg-surface p-3 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.6)]">
         <span className="px-2 text-sm font-medium" aria-live="polite">{count} ta tanlandi</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">

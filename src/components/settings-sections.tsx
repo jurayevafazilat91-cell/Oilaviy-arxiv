@@ -93,7 +93,7 @@ export function TelegramSection({ linked, linkedAt, botConfigured, canUpload, ma
               <CopyField value={`/start ${code.code}`} label="Ulanish buyrugʻi" />
               <div className="flex flex-wrap items-center gap-3">
                 <a href={code.deepLink} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center gap-2 bg-accent px-5 font-medium text-accent-ink transition-[filter] hover:brightness-105">
+                  className="inline-flex min-h-11 items-center gap-2 bg-accent px-5 font-medium text-accent-ink transition-[filter,scale] duration-150 ease-out hover:brightness-105 active:scale-[0.97]">
                   <ExternalLink className="size-4" aria-hidden />Telegram’da ochish
                 </a>
                 <span className="text-sm text-dim" aria-live="polite">Kod {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")} amal qiladi, bir marta ishlatiladi</span>

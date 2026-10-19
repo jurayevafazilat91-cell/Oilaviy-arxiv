@@ -31,6 +31,8 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; k: number } | null>(null);
   const moved = useRef(false);
+  // True only for button-driven zoom/fit, so the view glides there; drag, pinch, wheel and keys stay 1:1.
+  const [glide, setGlide] = useState(false);
 
   const layout = useMemo(() => layoutTree(people.map((p) => p.id), relationships), [people, relationships]);
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
@@ -63,6 +65,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      setGlide(false);
       const rect = el.getBoundingClientRect();
       zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top);
     };
@@ -71,6 +74,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
   }, [zoomAt]);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    setGlide(false);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved.current = false;
     if (pointers.current.size === 2) {
@@ -118,6 +122,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
     };
     if (e.target === e.currentTarget && keys[e.key]) {
       e.preventDefault();
+      setGlide(false);
       keys[e.key]();
     }
   };
@@ -151,7 +156,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
         className="h-[min(70dvh,760px)] cursor-grab touch-none overflow-hidden border border-line bg-surface bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] bg-[size:22px_22px] select-none active:cursor-grabbing"
       >
         <svg width="100%" height="100%" aria-hidden={false}>
-          <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+          <g style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, transition: glide ? "transform 400ms var(--ease-in-out)" : undefined }}>
             {layout.edges.map((edge) => (
               <path key={edge.key} d={edge.d} fill="none" stroke="var(--dim)" strokeOpacity={0.55} strokeWidth={1.5}
                 strokeDasharray={edge.dashed ? "6 5" : undefined} />
@@ -169,7 +174,7 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
                   role="button"
                   aria-label={`${name}${span ? `, ${span}` : ""}`}
                   aria-pressed={selected}
-                  className="cursor-pointer outline-none [&:focus-visible>rect]:stroke-[var(--ring)] [&:focus-visible>rect]:stroke-[3]"
+                  className="cursor-pointer outline-none [&>rect]:transition-[stroke,stroke-width] [&>rect]:duration-200 [&:focus-visible>rect]:stroke-[var(--ring)] [&:focus-visible>rect]:stroke-[3]"
                   onFocus={() => reveal(n.x, n.y)}
                   onClick={() => !moved.current && onSelect(n.id)}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect(n.id))}
@@ -200,9 +205,9 @@ export function TreeCanvas({ people, relationships, selectedId, onSelect }: {
         </svg>
       </div>
       <div className="absolute right-3 bottom-3 flex flex-col bg-surface-2">
-        <IconButton label="Kattalashtirish" onClick={() => zoomAt(1.25)}><Plus className="size-5" aria-hidden /></IconButton>
-        <IconButton label="Kichiklashtirish" onClick={() => zoomAt(0.8)}><Minus className="size-5" aria-hidden /></IconButton>
-        <IconButton label="Ekranga sigʻdirish" onClick={fit}><Maximize2 className="size-4" aria-hidden /></IconButton>
+        <IconButton label="Kattalashtirish" onClick={() => { setGlide(true); zoomAt(1.25); }}><Plus className="size-5" aria-hidden /></IconButton>
+        <IconButton label="Kichiklashtirish" onClick={() => { setGlide(true); zoomAt(0.8); }}><Minus className="size-5" aria-hidden /></IconButton>
+        <IconButton label="Ekranga sigʻdirish" onClick={() => { setGlide(true); fit(); }}><Maximize2 className="size-4" aria-hidden /></IconButton>
       </div>
     </div>
   );

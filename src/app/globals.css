@@ -46,8 +46,28 @@
   --color-ring: var(--ring);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  /* Motion: ease-out for anything entering, ease-in-out for things moving on screen. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);          /* quint: instant response, soft landing */
+  --ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1); /* cubic */
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --animate-rise: rise 240ms var(--ease-out) both;
+  --animate-rise-slow: rise 420ms var(--ease-out) both;
+  --animate-pop: pop 160ms var(--ease-out) both;
+  --animate-enter-x: enter-x 240ms var(--ease-out);
+  --animate-sheet: sheet 280ms var(--ease-out);
+  --animate-grow: grow 600ms var(--ease-out) both;
+  --animate-page: page 200ms var(--ease-out);
+  --animate-blink: blink 360ms var(--ease-out) both;
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes pop { from { opacity: 0; transform: scale(0.95); } }
+  @keyframes enter-x { from { opacity: 0; transform: translateX(12px); } }
+  @keyframes sheet { from { transform: translateY(100%); } }
+  @keyframes grow { from { transform: scaleY(0); } }
+  @keyframes page { from { opacity: 0; transform: translateY(4px); } }
+  @keyframes blink { from { opacity: 0; } }
 }
 
 html {
@@ -77,6 +97,22 @@ dialog.lightbox::backdrop {
   background: var(--scrim);
 }
 
+/* Dialogs scale up from 96% (never from 0); the backdrop fades on the same 200ms curve. */
+dialog[open] {
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+dialog[open]::backdrop {
+  transition: opacity 200ms var(--ease-out);
+}
+@starting-style {
+  dialog[open] { opacity: 0; transform: scale(0.96); }
+  dialog[open]::backdrop { opacity: 0; }
+}
+/* The full-screen viewer only fades: scaling the whole screen reads as a zoom glitch. */
+@starting-style {
+  dialog.lightbox[open] { transform: none; }
+}
+
 select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23d4d7dc' stroke-width='1.6' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E");
@@ -90,6 +126,15 @@ select {
   contain-intrinsic-size: auto 900px;
 }
 
+/* Thumbnails fade in once decoded instead of popping in line by line. */
+img.fade-load {
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out), scale 700ms var(--ease-out-expo);
+}
+img.fade-load[data-loaded] {
+  opacity: 1;
+}
+
 .skeleton {
   background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface) 50%, var(--surface-2) 100%);
   background-size: 200% 100%;
@@ -101,25 +146,11 @@ select {
   to { background-position: -200% 0; }
 }
 
-/* Pixel-grid glow from the brand card: a few lit squares fading into the charcoal. */
-.pixels {
-  background-image:
-    linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(rgb(182 238 127 / 0.35), rgb(182 238 127 / 0.35)),
-    linear-gradient(rgb(182 238 127 / 0.18), rgb(182 238 127 / 0.18)),
-    linear-gradient(rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.07)),
-    linear-gradient(rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.05)),
-    linear-gradient(rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.04));
-  background-size: 10px 10px;
-  background-repeat: no-repeat;
-  background-position: 82px 52px, 82px 36px, 66px 52px, 50px 20px, 98px 4px, 34px 36px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  /* Global off switch: every element lands on its final state with no movement, opacity included. */
+  *, *::before, *::after, ::backdrop {
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }

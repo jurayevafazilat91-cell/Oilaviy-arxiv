@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode,
   type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { AlertCircle, Loader2, X } from "lucide-react";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -27,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-[filter,background-color,transform] duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-[filter,background-color,scale] duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" ? "min-h-9 px-3.5 text-sm" : "min-h-11 px-5 text-[15px]",
         variants[variant],
         className,
@@ -47,7 +48,7 @@ export function IconButton({ label, children, className, ...rest }: ButtonHTMLAt
       type="button"
       aria-label={label}
       title={label}
-      className={cx("inline-flex size-11 shrink-0 cursor-pointer items-center justify-center transition-colors hover:bg-surface-2 disabled:opacity-40", className)}
+      className={cx("inline-flex size-11 shrink-0 cursor-pointer items-center justify-center transition-[background-color,scale] duration-150 ease-out hover:bg-surface-2 active:scale-95 disabled:opacity-40", className)}
       {...rest}
     >
       {children}
@@ -99,12 +100,12 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
 export function Notice({ tone = "danger", children }: { tone?: "danger" | "ok" | "neutral"; children: ReactNode }) {
   if (!children) return null;
   const tones = { danger: "border-danger text-danger", ok: "border-ok text-ink", neutral: "border-slate text-ink" };
-  return <p role={tone === "danger" ? "alert" : "status"} className={cx("border-l-2 bg-surface-2 px-4 py-3 text-sm", tones[tone])}>{children}</p>;
+  return <p role={tone === "danger" ? "alert" : "status"} className={cx("animate-rise border-l-2 bg-surface-2 px-4 py-3 text-sm", tones[tone])}>{children}</p>;
 }
 
 export function EmptyState({ icon, title, children, action }: { icon: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center px-6 py-20 text-center">
+    <div className="mx-auto flex max-w-md animate-rise-slow flex-col items-center px-6 py-20 text-center">
       <div className="mb-6 flex size-16 items-center justify-center bg-surface text-accent [&_svg]:size-7">{icon}</div>
       <h2 className="font-display text-xl font-medium uppercase">{title}</h2>
       {children && <div className="mt-2 text-dim">{children}</div>}
@@ -145,6 +146,19 @@ export function Dialog({ open, onClose, title, children, className }: { open: bo
 
 export function Spinner({ label = "Yuklanmoqda" }: { label?: string }) {
   return <Loader2 className="size-5 animate-spin text-dim" role="status" aria-label={label} />;
+}
+
+/** The lime block that marks the current choice; slides between options instead of jumping (layoutId). */
+export function Glider({ id, className = "absolute inset-0 bg-accent" }: { id: string; className?: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      layoutId={id}
+      aria-hidden
+      className={className}
+      transition={reduce ? { duration: 0 } : { type: "spring", duration: 0.4, bounce: 0 }}
+    />
+  );
 }
 
 /** Count chip next to an uppercase heading (slate square with the number). */

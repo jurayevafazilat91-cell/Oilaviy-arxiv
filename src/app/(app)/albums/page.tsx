@@ -37,9 +37,9 @@ async function Albums() {
         <EmptyState icon={<BookImage />} title="Albom yoʻq">Albom yarating yoki Telegram’da izohga #albom-nomi yozing.</EmptyState>
       ) : (
         <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 2xl:grid-cols-5">
-          {albums.map((a) => (
-            <li key={a.id}>
-              <Link href={`/albums/${a.id}`} className="group block">
+          {albums.map((a, i) => (
+            <li key={a.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
+              <Link href={`/albums/${a.id}`} className="group block transition-[scale] duration-150 ease-out active:scale-[0.98]">
                 {/* Portrait cover with the title on a charcoal tab, as on a profile photo. */}
                 <div className="relative aspect-[6/7] overflow-hidden bg-surface">
                   {a.coverId ? (

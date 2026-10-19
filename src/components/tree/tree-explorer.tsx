@@ -8,7 +8,7 @@ import {
 } from "@/actions/tree";
 import type { Person, Relationship } from "@/lib/tree";
 import { formatPartialDate, personName } from "@/lib/format";
-import { Badge, Button, cx, Dialog, EmptyState, Field, IconButton, Input, Notice, Select, Textarea } from "../ui";
+import { Badge, Button, cx, Dialog, EmptyState, Field, Glider, IconButton, Input, Notice, Select, Textarea } from "../ui";
 import { lifeSpan, TreeCanvas } from "./tree-canvas";
 
 type Props = {
@@ -44,8 +44,9 @@ export function TreeExplorer({ people, relationships, canEdit, isAdmin, members 
         <div role="group" aria-label="Koʻrinish" className="flex bg-surface-2">
           {([["tree", "Daraxt", Network], ["list", "Roʻyxat", List]] as const).map(([v, label, Icon]) => (
             <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
-              className={cx("flex min-h-11 cursor-pointer items-center gap-2 px-4 text-sm font-medium", view === v ? "bg-accent text-accent-ink" : "text-dim hover:text-ink")}>
-              <Icon className="size-4" aria-hidden />{label}
+              className={cx("relative flex min-h-11 cursor-pointer items-center gap-2 px-4 text-sm font-medium transition-colors duration-300", view === v ? "text-accent-ink" : "text-dim hover:text-ink")}>
+              {view === v && <Glider id="tree-view" />}
+              <Icon className="relative size-4" aria-hidden /><span className="relative">{label}</span>
             </button>
           ))}
         </div>
@@ -142,7 +143,7 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
 
 
   return (
-    <aside aria-label={personName(p)} className="space-y-5 bg-surface p-5 lg:sticky lg:top-6 lg:self-start">
+    <aside aria-label={personName(p)} className="animate-rise space-y-5 bg-surface p-5 lg:sticky lg:top-6 lg:self-start lg:animate-enter-x">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="font-display text-2xl font-semibold uppercase leading-tight">{personName(p)}</h2>
@@ -162,7 +163,7 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
       <Notice>{error}</Notice>
 
       <div className="flex flex-wrap gap-2">
-        <Link href={`/people/${p.id}`} className="inline-flex min-h-9 items-center gap-2 bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter] hover:brightness-110">
+        <Link href={`/people/${p.id}`} className="inline-flex min-h-9 items-center gap-2 bg-slate px-3.5 text-sm font-medium text-slate-ink transition-[filter,scale] duration-150 ease-out hover:brightness-110 active:scale-[0.97]">
           <Images className="size-4" aria-hidden />Rasmlari
         </Link>
         {canEdit && <Button size="sm" onClick={onEdit}><Pencil className="size-4" aria-hidden />Tahrirlash</Button>}

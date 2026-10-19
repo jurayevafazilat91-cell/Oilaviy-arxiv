@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Images, Search, Sparkles, X } from "lucide-react";
 import { aiSearchAction } from "@/actions/media";
-import { Button, cx, Notice } from "../ui";
+import { Button, cx, Glider, Notice } from "../ui";
 
 const KINDS = [
   { value: "", label: "Hammasi" },
@@ -90,16 +90,17 @@ export function GalleryFilters({ years, aiEnabled }: { years: { year: number; co
           </div>
           {years.length > 0 && (
             <div role="group" aria-label="Yil boʻyicha filtr" className="-mx-2 flex max-w-full items-end gap-1 overflow-x-auto px-2 pb-1">
-              {[...years].reverse().map(({ year: y, count }) => {
+              {[...years].reverse().map(({ year: y, count }, i) => {
                 const on = year === String(y);
+                const delay = 120 + Math.min(i, 14) * 45; // bars rise left to right, oldest year first
                 return (
                   <button key={y} type="button" aria-pressed={on} aria-label={`${y}: ${count} ta fayl`} title={`${y}: ${count} ta`}
                     onClick={() => setYear(on ? "" : String(y))}
-                    className="group flex w-9 shrink-0 cursor-pointer flex-col items-center gap-2">
+                    className="group flex w-9 shrink-0 cursor-pointer flex-col items-center gap-2 transition-[scale] duration-150 ease-out active:scale-95">
                     <span className="flex h-24 w-3 flex-col justify-end gap-0.5">
-                      <span className="h-2 bg-mist-dim/30 transition-colors group-hover:bg-mist-dim/60" />
-                      <span className={cx("transition-[height,background-color] duration-500 ease-out-expo", on ? "bg-accent outline outline-mist-ink/15" : "bg-white")}
-                        style={{ height: `${Math.max(6, Math.round((count / max) * 80))}px` }} />
+                      <span className="h-2 animate-blink bg-mist-dim/30 transition-colors group-hover:bg-mist-dim/60" style={{ animationDelay: `${delay + 380}ms` }} />
+                      <span className={cx("origin-bottom animate-grow transition-colors duration-200", on ? "bg-accent outline outline-mist-ink/15" : "bg-white group-hover:bg-white/80")}
+                        style={{ height: `${Math.max(6, Math.round((count / max) * 80))}px`, animationDelay: `${delay}ms` }} />
                     </span>
                     <span className={cx("text-[11px] font-medium tabular-nums", on && "font-bold")}>{String(y).slice(2)}</span>
                   </button>
@@ -130,7 +131,7 @@ export function GalleryFilters({ years, aiEnabled }: { years: { year: number; co
               aria-pressed={useAi}
               onClick={() => setUseAi((v) => !v)}
               className={cx(
-                "inline-flex min-h-12 cursor-pointer items-center gap-2 px-4 text-sm font-medium transition-colors",
+                "inline-flex min-h-12 cursor-pointer items-center gap-2 px-4 text-sm font-medium transition-[background-color,color,scale] duration-150 ease-out active:scale-[0.97]",
                 useAi ? "bg-accent text-accent-ink" : "bg-surface text-dim hover:text-ink",
               )}
             >
@@ -151,9 +152,10 @@ export function GalleryFilters({ years, aiEnabled }: { years: { year: number; co
               type="button"
               aria-pressed={kind === k.value}
               onClick={() => go((p) => (k.value ? p.set("kind", k.value) : p.delete("kind")))}
-              className={cx("min-h-10 cursor-pointer px-4 text-sm", kind === k.value ? "bg-accent font-medium text-accent-ink" : "text-dim hover:text-ink")}
+              className={cx("relative min-h-10 cursor-pointer px-4 text-sm transition-colors duration-300", kind === k.value ? "font-medium text-accent-ink" : "text-dim hover:text-ink")}
             >
-              {k.label}
+              {kind === k.value && <Glider id="kind-filter" />}
+              <span className="relative">{k.label}</span>
             </button>
           ))}
         </div>
@@ -168,7 +170,7 @@ export function GalleryFilters({ years, aiEnabled }: { years: { year: number; co
         <p className="flex flex-wrap items-center gap-2 text-sm text-dim">
           <Sparkles className="size-4 text-accent" aria-hidden />
           AI tushundi:
-          {keywords.map((k) => <span key={k} className="rounded-full bg-surface px-3 py-1 text-ink">{k}</span>)}
+          {keywords.map((k, i) => <span key={k} className="animate-pop rounded-full bg-surface px-3 py-1 text-ink" style={{ animationDelay: `${i * 50}ms` }}>{k}</span>)}
           {params.get("from") && <span className="rounded-full bg-surface px-3 py-1 text-ink">{params.get("from")}{params.get("to") !== params.get("from") ? `–${params.get("to") ?? ""}` : ""}</span>}
         </p>
       )}

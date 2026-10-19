@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, BookImage, Images, LogOut, Network, Settings, Trash2, Upload, UserRound } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
+import { Glider } from "./ui";
 
 const LINKS = [
   { href: "/", label: "Arxiv", icon: Images },
@@ -20,6 +21,18 @@ const KINDS = [
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" || pathname.startsWith("/media") : pathname.startsWith(href));
 
+/** Marks a clicked link current right away, so the highlight moves on click instead of after the server answers. */
+function useOptimisticNav() {
+  const pathname = usePathname();
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  if (pending && pending.from !== pathname) setPending(null);
+  const isCurrent = (href: string) => (pending ? pending.href === href : isActive(pathname, href));
+  const onNavigate = (href: string) => (e: React.MouseEvent) => {
+    if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)) setPending({ href, from: pathname });
+  };
+  return { pathname, isCurrent, onNavigate };
+}
+
 /** Lime tile with a nested frame: a photo inside the family album. */
 export function Logo({ className = "" }: { className?: string }) {
   return (
@@ -34,10 +47,10 @@ export function Logo({ className = "" }: { className?: string }) {
   );
 }
 
-const iconSquare = "flex size-10 items-center justify-center bg-surface-2 text-ink transition-colors hover:bg-night aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink";
+const iconSquare = "flex size-10 items-center justify-center bg-surface-2 text-ink transition-[background-color,color,scale] duration-150 ease-out hover:bg-night active:scale-95 aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink";
 
 export function SideNav({ canUpload, name, familyName }: { canUpload: boolean; name: string; familyName: string }) {
-  const pathname = usePathname();
+  const { pathname, isCurrent, onNavigate } = useOptimisticNav();
   const params = useSearchParams();
   const kind = params.get("kind");
   return (
@@ -47,8 +60,8 @@ export function SideNav({ canUpload, name, familyName }: { canUpload: boolean; n
       <div className="flex items-center gap-2 border-b border-line py-5">
         {canUpload && (
           <Link href="/upload" aria-current={pathname === "/upload" ? "page" : undefined}
-            className="inline-flex min-h-10 items-center gap-2 bg-slate px-4 text-sm text-slate-ink transition-[filter] hover:brightness-110 aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink">
-            Yuklash <ArrowRight className="size-3.5" aria-hidden />
+            className="group inline-flex min-h-10 items-center gap-2 bg-slate px-4 text-sm text-slate-ink transition-[filter,background-color,color,scale] duration-150 ease-out hover:brightness-110 active:scale-[0.97] aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink">
+            Yuklash <ArrowRight className="size-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5" aria-hidden />
           </Link>
         )}
         <div className="ml-auto flex gap-2">
@@ -65,20 +78,21 @@ export function SideNav({ canUpload, name, familyName }: { canUpload: boolean; n
       <nav aria-label="Asosiy">
         <ul className="space-y-3">
           {LINKS.map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href);
+            const active = isCurrent(href);
             return (
               <li key={href}>
-                <Link href={href} aria-current={active ? "page" : undefined}
-                  className="group flex min-h-16 items-center gap-3.5 bg-surface-2 px-3 text-[15px] font-medium transition-colors hover:bg-night aria-[current=page]:bg-accent aria-[current=page]:text-accent-ink">
-                  <span className="flex size-11 shrink-0 items-center justify-center bg-mist text-mist-ink group-aria-[current=page]:bg-surface group-aria-[current=page]:text-accent">
+                <Link href={href} onClick={onNavigate(href)} aria-current={active ? "page" : undefined}
+                  className="group relative flex min-h-16 items-center gap-3.5 bg-surface-2 px-3 text-[15px] font-medium transition-[background-color,color,scale] duration-300 ease-out hover:bg-night active:scale-[0.98] aria-[current=page]:text-accent-ink">
+                  {active && <Glider id="side-nav" />}
+                  <span className="relative flex size-11 shrink-0 items-center justify-center bg-mist text-mist-ink transition-colors duration-300 group-aria-[current=page]:bg-surface group-aria-[current=page]:text-accent">
                     <Icon className="size-5" strokeWidth={1.75} aria-hidden />
                   </span>
-                  {label}
+                  <span className="relative">{label}</span>
                 </Link>
                 {active && href === "/" && (
                   <ul className="mt-3 mb-1 ml-3 border-l border-line">
-                    {KINDS.map((k) => (
-                      <li key={k.label}>
+                    {KINDS.map((k, i) => (
+                      <li key={k.label} className="animate-rise" style={{ animationDelay: `${60 + i * 40}ms` }}>
                         <Link href={k.value ? `/?kind=${k.value}` : "/"} aria-current={pathname === "/" && kind === k.value ? "true" : undefined}
                           className="relative flex min-h-9 items-center pl-6 text-[15px] text-dim transition-colors before:absolute before:top-1/2 before:left-0 before:w-3 before:border-t before:border-line hover:text-ink aria-[current=true]:text-accent aria-[current=true]:before:border-accent">
                           {k.label}
@@ -112,7 +126,7 @@ export function SideNav({ canUpload, name, familyName }: { canUpload: boolean; n
 }
 
 export function MobileNav({ canUpload }: { canUpload: boolean }) {
-  const pathname = usePathname();
+  const { isCurrent, onNavigate } = useOptimisticNav();
   const items = [
     LINKS[0],
     LINKS[1],
@@ -127,10 +141,12 @@ export function MobileNav({ canUpload }: { canUpload: boolean }) {
           <li key={href} className="flex-1">
             <Link
               href={href}
-              aria-current={isActive(pathname, href) ? "page" : undefined}
-              className="relative flex min-h-15 flex-col items-center justify-center gap-1 text-[11px] text-dim before:absolute before:inset-x-3 before:top-0 before:h-0.5 aria-[current=page]:text-accent aria-[current=page]:before:bg-accent"
+              onClick={onNavigate(href)}
+              aria-current={isCurrent(href) ? "page" : undefined}
+              className="group relative flex min-h-15 flex-col items-center justify-center gap-1 text-[11px] text-dim transition-colors duration-200 aria-[current=page]:text-accent"
             >
-              <Icon className="size-5" aria-hidden />
+              {isCurrent(href) && <Glider id="mobile-nav" className="absolute inset-x-3 top-0 h-0.5 bg-accent" />}
+              <Icon className="size-5 transition-transform duration-150 ease-out group-active:scale-90" aria-hidden />
               {label}
             </Link>
           </li>
@@ -164,13 +180,13 @@ export function UserMenu({ name, familyName }: { name: string; familyName: strin
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((o) => !o)}
-        className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-slate font-display font-semibold text-slate-ink uppercase"
+        className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-slate font-display font-semibold text-slate-ink uppercase transition-[scale] duration-150 ease-out active:scale-95"
         aria-label={`Menyu: ${name}`}
       >
         {name.slice(0, 1)}
       </button>
       {open && (
-        <div className="absolute top-12 right-0 z-50 w-64 bg-surface p-2 shadow-[0_24px_60px_-16px_rgb(0_0_0/0.7)] ring-1 ring-line">
+        <div className="absolute top-12 right-0 z-50 w-64 origin-top-right animate-pop bg-surface p-2 shadow-[0_24px_60px_-16px_rgb(0_0_0/0.7)] ring-1 ring-line">
           <div className="bg-slate px-3 py-3 text-slate-ink">
             <p className="truncate font-display text-sm font-semibold tracking-wide uppercase">{familyName}</p>
             <p className="mt-1 truncate text-sm">{name}</p>

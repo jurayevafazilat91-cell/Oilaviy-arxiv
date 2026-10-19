@@ -19,7 +19,20 @@ type Props = {
   nearEnd: () => void;
 };
 
-const ease = [0.16, 1, 0.3, 1] as const;
+const ease = [0.23, 1, 0.32, 1] as const; // ease-out-quint, same curve as --ease-out
+
+// Slide in from the side being navigated towards; the outgoing item leaves the other way, a bit faster.
+const slide = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 40 }),
+  center: { opacity: 1, x: 0, transition: { duration: 0.24, ease } },
+  // pointerEvents: the leaving item must not swallow clicks meant for the new one (e.g. video controls).
+  exit: (dir: number) => ({ opacity: 0, x: dir * -40, pointerEvents: "none" as const, transition: { duration: 0.18, ease } }),
+};
+const fade = {
+  enter: { opacity: 0 },
+  center: { opacity: 1, transition: { duration: 0.12 } },
+  exit: { opacity: 0, pointerEvents: "none" as const, transition: { duration: 0.1 } },
+};
 
 export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpdated, nearEnd }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -32,6 +45,9 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
   const detail = loaded?.id === item.id ? loaded.detail : null;
   const detailError = loaded?.id === item.id && loaded.error;
   const swipe = useRef<{ x: number; y: number } | null>(null);
+  // Direction of the last move (+1 next, -1 previous), derived when the index changes.
+  const [nav, setNav] = useState({ index, dir: 1 });
+  if (nav.index !== index) setNav({ index, dir: index > nav.index ? 1 : -1 });
 
   useEffect(() => {
     const d = dialog.current;
@@ -81,18 +97,18 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
             </p>
             <a
               href={`/api/media/${item.id}/original?download`}
-              className="inline-flex size-11 items-center justify-center hover:bg-white/10"
+              className="inline-flex size-11 items-center justify-center transition-[background-color,scale] duration-150 ease-out hover:bg-white/10 active:scale-95"
               aria-label="Asl faylni yuklab olish"
               title="Asl faylni yuklab olish"
             >
               <Download className="size-5" aria-hidden />
             </a>
             <button type="button" onClick={() => setInfoOpen((o) => !o)} aria-pressed={infoOpen} aria-label="Maʼlumot" title="Maʼlumot (i)"
-              className="inline-flex size-11 cursor-pointer items-center justify-center hover:bg-white/10 aria-pressed:bg-accent aria-pressed:text-accent-ink">
+              className="inline-flex size-11 cursor-pointer items-center justify-center transition-[background-color,color,scale] duration-150 ease-out hover:bg-white/10 active:scale-95 aria-pressed:bg-accent aria-pressed:text-accent-ink">
               <Info className="size-5" aria-hidden />
             </button>
             <button type="button" onClick={() => dialog.current?.close()} aria-label="Yopish" title="Yopish (Esc)" autoFocus
-              className="inline-flex size-11 cursor-pointer items-center justify-center hover:bg-white/10">
+              className="inline-flex size-11 cursor-pointer items-center justify-center transition-[background-color,scale] duration-150 ease-out hover:bg-white/10 active:scale-95">
               <X className="size-6" aria-hidden />
             </button>
           </div>
@@ -108,14 +124,15 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
               if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) (dx > 0 ? prev : next)();
             }}
           >
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence mode="popLayout" initial={false} custom={nav.dir}>
               <motion.div
                 key={item.id}
+                custom={nav.dir}
+                variants={reduce ? fade : slide}
+                initial="enter"
+                animate="center"
+                exit="exit"
                 className="flex size-full items-center justify-center"
-                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: reduce ? 0.12 : 0.45, ease }}
               >
                 {item.kind === "video" ? (
                   <video
@@ -145,7 +162,7 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
         {infoOpen && (
           <aside
             aria-label="Media maʼlumotlari"
-            className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] overflow-y-auto border-t border-line bg-surface text-ink lg:static lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-l"
+            className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] animate-sheet overflow-y-auto border-t border-line bg-surface text-ink lg:static lg:animate-enter-x lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-l"
           >
             <MediaInfo
               key={item.id}
@@ -173,7 +190,7 @@ function NavButton({ side, disabled, onClick }: { side: "left" | "right"; disabl
       disabled={disabled}
       aria-label={side === "left" ? "Oldingi" : "Keyingi"}
       className={cx(
-        "absolute top-1/2 hidden size-12 -translate-y-1/2 cursor-pointer items-center justify-center bg-surface/70 transition-[opacity,background-color] hover:bg-surface disabled:pointer-events-none disabled:opacity-0 sm:flex",
+        "absolute top-1/2 hidden size-12 -translate-y-1/2 cursor-pointer items-center justify-center bg-surface/70 transition-[opacity,background-color,scale] duration-150 ease-out hover:bg-surface active:scale-95 disabled:pointer-events-none disabled:opacity-0 sm:flex",
         side === "left" ? "left-3" : "right-3",
       )}
     >
@@ -188,13 +205,13 @@ function ProgressiveImage({ id, alt }: { id: string; alt: string }) {
   return (
     <div className="relative flex size-full items-center justify-center">
       {/* eslint-disable-next-line @next/next/no-img-element -- private, authorized files */}
-      <img src={`/api/media/${id}/thumb`} alt="" aria-hidden className={cx("absolute inset-0 size-full object-contain blur-sm transition-opacity duration-300", loaded && "opacity-0")} />
+      <img src={`/api/media/${id}/thumb`} alt="" aria-hidden className={cx("absolute inset-0 size-full object-contain blur-sm transition-opacity duration-300 ease-out", loaded && "opacity-0")} />
       {/* eslint-disable-next-line @next/next/no-img-element -- private, authorized files */}
       <img
         src={`/api/media/${id}/preview`}
         alt={alt}
         onLoad={() => setLoaded(true)}
-        className={cx("relative size-full object-contain transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0")}
+        className={cx("relative size-full object-contain transition-opacity duration-300 ease-out", loaded ? "opacity-100" : "opacity-0")}
       />
     </div>
   );

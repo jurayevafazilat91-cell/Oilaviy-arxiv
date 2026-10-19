@@ -48,7 +48,7 @@ export function UploadPanel({ albums, maxImageMb, maxVideoMb, defaultAlbum }: {
             drag ? "border-accent bg-surface-2" : "border-line bg-surface",
           )}
         >
-          <UploadCloud className="mb-4 size-10 text-accent" aria-hidden />
+          <UploadCloud className={cx("mb-4 size-10 text-accent transition-transform duration-200 ease-out", drag && "-translate-y-1.5 scale-110")} aria-hidden />
           <p className="font-display text-xl font-medium uppercase">Fayllarni shu yerga tashlang</p>
           <p className="mt-1 mb-5 text-sm text-dim">yoki kompyuter/telefondan tanlang</p>
           <Button variant="primary" onClick={() => input.current?.click()}>Fayllarni tanlash</Button>
@@ -97,7 +97,7 @@ const STATUS: Record<UploadItem["status"], string> = {
 function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => void; onRetry: () => void }) {
   const pct = Math.round(item.progress * 100);
   return (
-    <li className="flex items-center gap-3 p-3">
+    <li className="flex animate-rise items-center gap-3 p-3">
       <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden bg-surface-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
         {item.preview ? <img src={item.preview} alt="" className="size-full object-cover" /> : <FileVideo className="size-6 text-dim" aria-hidden />}
@@ -105,7 +105,7 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-medium" title={item.file.name}>{item.file.name}</p>
         <p className={cx("flex items-center gap-1.5 text-sm", item.status === "failed" ? "text-danger" : "text-dim")}>
-          {item.status === "done" && <CheckCircle2 className="size-4 text-ok" aria-hidden />}
+          {item.status === "done" && <CheckCircle2 className="size-4 animate-pop text-ok" aria-hidden />}
           {item.status === "duplicate" && <Copy className="size-4" aria-hidden />}
           {item.status === "failed" && <AlertTriangle className="size-4" aria-hidden />}
           <span>{STATUS[item.status]}{item.status === "uploading" ? ` · ${pct}%` : ""}{item.error ? `: ${item.error}` : ""}</span>
@@ -120,7 +120,8 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
             aria-valuenow={pct}
             className="mt-2 h-1.5 overflow-hidden bg-surface-2"
           >
-            <div className={cx("h-full bg-accent transition-[width] duration-300", item.status === "processing" && "animate-pulse")} style={{ width: `${pct}%` }} />
+            {/* scaleX instead of width: the bar grows on the compositor, no layout per progress tick. */}
+            <div className={cx("h-full origin-left bg-accent transition-transform duration-300 ease-out", item.status === "processing" && "animate-pulse")} style={{ transform: `scaleX(${pct / 100})` }} />
           </div>
         )}
       </div>
@@ -131,7 +132,7 @@ function Row({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => vo
         <IconButton label={`${item.file.name}: qayta urinish`} onClick={onRetry}><RotateCcw className="size-5" aria-hidden /></IconButton>
       )}
       {(item.status === "done" || item.status === "duplicate") && item.mediaId && (
-        <Link href={`/media/${item.mediaId}`} className="px-3 py-2 text-sm font-medium text-accent hover:bg-surface-2">Koʻrish</Link>
+        <Link href={`/media/${item.mediaId}`} className="animate-pop px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-surface-2">Koʻrish</Link>
       )}
     </li>
   );
