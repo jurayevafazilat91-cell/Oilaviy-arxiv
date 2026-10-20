@@ -11,7 +11,10 @@ export async function migrate(url = process.env.DATABASE_URL_UNPOOLED ?? process
       ? "DATABASE_URL topilmadi. Vercel → loyiha → Storage → Neon bazasini ulang (barcha muhitlar uchun), keyin Redeploy qiling."
       : "DATABASE_URL topilmadi. .env.local faylida DATABASE_URL ni koʻrsating.");
   }
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  // Same as src/lib/db.ts: postgres.js would send Neon's channel_binding=require to the server as an unknown setting.
+  const u = new URL(url);
+  u.searchParams.delete("channel_binding");
+  const sql = postgres(u.href, { max: 1, onnotice: () => {} });
   try {
     await sql`create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`;
     const dir = path.resolve("db/migrations");
