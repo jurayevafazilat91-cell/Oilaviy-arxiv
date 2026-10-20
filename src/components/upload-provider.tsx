@@ -20,7 +20,7 @@ export type UploadItem = {
 
 type Ctx = {
   items: UploadItem[];
-  add: (files: File[], albumId: string | null) => void;
+  add: (files: File[], albumId: string | null) => string[];
   cancel: (key: string) => void;
   retry: (key: string) => void;
   clearFinished: () => void;
@@ -184,18 +184,18 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
 
+  // Returns the new items' keys so a caller can follow its own upload (e.g. a portrait for the family tree).
   const add = useCallback((files: File[], albumId: string | null) => {
-    setItems((list) => [
-      ...list,
-      ...files.map((file) => ({
-        key: `${file.name}:${file.size}:${file.lastModified}:${crypto.randomUUID()}`,
-        file,
-        albumId,
-        status: "queued" as const,
-        progress: 0,
-        preview: file.type.startsWith("image/") && file.size < 30 * 1024 * 1024 ? URL.createObjectURL(file) : undefined,
-      })),
-    ]);
+    const made = files.map((file) => ({
+      key: `${file.name}:${file.size}:${file.lastModified}:${crypto.randomUUID()}`,
+      file,
+      albumId,
+      status: "queued" as const,
+      progress: 0,
+      preview: file.type.startsWith("image/") && file.size < 30 * 1024 * 1024 ? URL.createObjectURL(file) : undefined,
+    }));
+    setItems((list) => [...list, ...made]);
+    return made.map((m) => m.key);
   }, []);
 
   const cancel = useCallback((key: string) => {

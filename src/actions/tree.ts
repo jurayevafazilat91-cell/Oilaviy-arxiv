@@ -4,7 +4,8 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { assert, canEditTree, requireUser } from "@/lib/auth";
 import {
-  addRelationship, deletePerson, linkPersonToUser, personInput, relationshipInput, removeRelationship, savePerson,
+  addRelationship, addSampleRelatives, deletePerson, linkPersonToUser, personInput, relationshipInput, removeRelationship, savePerson,
+  setPersonAvatar,
 } from "@/lib/tree";
 import { run } from "./result";
 
@@ -27,6 +28,24 @@ export async function deletePersonAction(id: string) {
   return run(async () => {
     const user = await editor();
     await deletePerson(user, z.uuid().parse(id));
+    refresh();
+    return null;
+  });
+}
+
+export async function setAvatarAction(personId: string, mediaId: string) {
+  return run(async () => {
+    const user = await editor();
+    await setPersonAvatar(user, z.uuid().parse(personId), z.uuid().parse(mediaId));
+    refresh();
+    return null;
+  });
+}
+
+export async function addSampleRelativesAction(personId: string) {
+  return run(async () => {
+    const user = await editor();
+    await addSampleRelatives(user, z.uuid().parse(personId));
     refresh();
     return null;
   });

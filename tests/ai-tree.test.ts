@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { interpretSearch } from "../src/lib/ai";
 import { createUpload, completeUpload, writeChunk } from "../src/lib/media/uploads";
-import { addRelationship, redactPerson, savePerson, type Person } from "../src/lib/tree";
+import { addRelationship, addSampleRelatives, loadTree, redactPerson, savePerson, setPersonAvatar, type Person } from "../src/lib/tree";
 import { layoutTree, lineageOf } from "../src/lib/tree-layout";
 import { drainJobs, fakeServer, jpegFixture, makeUser, read, resetDb, sql } from "./helpers";
 
@@ -100,6 +100,38 @@ describe("AI descriptions", () => {
 describe("family tree", () => {
   const person = (firstName: string, extra: Partial<Parameters<typeof savePerson>[1]> = {}) => ({
     firstName, lastName: "", patronymic: "", gender: null, birthDate: null, deathDate: null, isLiving: true, birthPlace: "", notes: "", ...extra,
+  });
+
+  test("sample relatives fill grandparents to grandchildren around an unlinked person, once", async () => {
+    const editor = await makeUser("admin");
+    const me = await savePerson(editor, person("Abdullox", { lastName: "Jurayev", gender: "male" }));
+    await addSampleRelatives(editor, me);
+    const { people, relationships } = await loadTree(editor);
+    assert.equal(people.length, 10);
+    const by = Object.fromEntries(people.map((p) => [p.id, p]));
+    const name = (id: string) => `${by[id].firstName} ${by[id].lastName}`.trim();
+    const parentsOf = (id: string) => relationships.filter((r) => r.type === "parent" && r.personB === id).map((r) => name(r.personA)).sort();
+    const id = (first: string) => people.find((p) => p.firstName === first)!.id;
+    assert.deepEqual(parentsOf(me), ["Ona Jurayeva", "Ota Jurayev"]);
+    assert.deepEqual(parentsOf(id("Ota")), ["Bobo Jurayev", "Buvi Jurayeva"]);
+    assert.deepEqual(parentsOf(id("Qiz")), ["Abdullox Jurayev", "Turmush oʻrtogʻi Jurayeva"]);
+    assert.equal(people.filter((p) => p.firstName === "Nevara").every((p) => parentsOf(p.id)[0] === "Oʻgʻil Jurayev"), true);
+    const { nodes } = layoutTree(people.map((p) => p.id), relationships);
+    assert.equal(new Set(nodes.map((n) => n.gen)).size, 5, "bobo-buvi → ota-ona → me → children → grandchildren");
+    await assert.rejects(addSampleRelatives(editor, me), /bogʻlanmagan/);
+  });
+
+  test("a portrait becomes the person's avatar and tags them; another family's photo is refused", async () => {
+    const editor = await makeUser("admin");
+    const me = await savePerson(editor, person("Abdullox"));
+    const photo = await uploadPhoto(editor);
+    await setPersonAvatar(editor, me, photo.id);
+    const { people } = await loadTree(editor);
+    assert.equal(people[0].avatarMediaId, photo.id);
+    assert.equal((await sql`select 1 from media_people where person_id = ${me}`).length, 1);
+    const stranger = await makeUser("admin");
+    const theirs = await savePerson(stranger, person("Begona"));
+    await assert.rejects(setPersonAvatar(stranger, theirs, photo.id), /topilmadi/);
   });
 
   test("rejects self-links, duplicates, cycles and a third biological parent; allows step/adoptive", async () => {

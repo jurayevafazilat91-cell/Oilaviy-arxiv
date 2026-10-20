@@ -157,6 +157,76 @@ export async function savePerson(user: CurrentUser, input: PersonInput, id?: str
   return row.id;
 }
 
+/** The chosen portrait must be a live image of the same family; the person is also tagged in it. */
+export async function setPersonAvatar(user: CurrentUser, personId: string, mediaId: string) {
+  const [row] = await sql`
+    update people set avatar_media_id = ${mediaId}, updated_at = now()
+    where id = ${personId} and family_id = ${user.familyId}
+      and exists (select 1 from media where id = ${mediaId} and family_id = ${user.familyId} and kind = 'image' and deleted_at is null)
+    returning id`;
+  if (!row) throw new TreeError("Odam yoki rasm topilmadi");
+  await tagPerson(user, mediaId, personId, true);
+}
+
+export const SAMPLE_NOTE = "Namuna: haqiqiy ism va maʼlumotlar bilan almashtiring.";
+
+/**
+ * Builds a placeholder family around a person who has no links yet: grandparents, parents, spouse,
+ * a son and a daughter, and two grandchildren. The family then renames them or deletes the ones that don't apply.
+ */
+export async function addSampleRelatives(user: CurrentUser, anchorId: string) {
+  await sql.begin(async (tx) => {
+    await lockFamily(tx, user.familyId);
+    const [a] = await tx<{ lastName: string; gender: string | null }[]>`
+      select last_name, gender from people where id = ${anchorId} and family_id = ${user.familyId}`;
+    if (!a) throw new TreeError("Odam topilmadi");
+    const [linked] = await tx`select 1 from relationships where person_a = ${anchorId} or person_b = ${anchorId} limit 1`;
+    if (linked) throw new TreeError("Namuna faqat hali hech kim bilan bogʻlanmagan odamga qoʻshiladi");
+
+    // Uzbek surnames: Jurayev (m) / Jurayeva (f).
+    const man = a.lastName.replace(/(ov|ev)a$/i, "$1");
+    const woman = /(ov|ev)$/i.test(man) ? `${man}a` : man;
+    const anchorIsMan = a.gender !== "female";
+    const add = async (firstName: string, gender: "male" | "female", lastName: string) => {
+      const [row] = await tx<{ id: string }[]>`
+        insert into people (family_id, first_name, last_name, gender, is_living, notes, created_by)
+        values (${user.familyId}, ${firstName}, ${lastName}, ${gender}, true, ${SAMPLE_NOTE}, ${user.id}) returning id`;
+      return row.id;
+    };
+    const parent = (p: string, c: string) => tx`
+      insert into relationships (family_id, type, person_a, person_b, subtype) values (${user.familyId}, 'parent', ${p}, ${c}, 'biological')`;
+    const spouse = (x: string, y: string) => {
+      const [p1, p2] = [x, y].sort();
+      return tx`insert into relationships (family_id, type, person_a, person_b, subtype) values (${user.familyId}, 'spouse', ${p1}, ${p2}, 'married')`;
+    };
+
+    const bobo = await add("Bobo", "male", man);
+    const buvi = await add("Buvi", "female", woman);
+    const ota = await add("Ota", "male", man);
+    const ona = await add("Ona", "female", woman);
+    // Children carry the father's surname: known only when the anchor is the father.
+    const juft = await add("Turmush oʻrtogʻi", anchorIsMan ? "female" : "male", anchorIsMan ? woman : "");
+    const ogil = await add("Oʻgʻil", "male", anchorIsMan ? man : "");
+    const qiz = await add("Qiz", "female", anchorIsMan ? woman : "");
+    const nevara1 = await add("Nevara", "male", anchorIsMan ? man : "");
+    const nevara2 = await add("Nevara", "female", anchorIsMan ? woman : "");
+
+    await spouse(bobo, buvi);
+    await parent(bobo, ota);
+    await parent(buvi, ota);
+    await spouse(ota, ona);
+    await parent(ota, anchorId);
+    await parent(ona, anchorId);
+    await spouse(anchorId, juft);
+    for (const child of [ogil, qiz]) {
+      await parent(anchorId, child);
+      await parent(juft, child);
+    }
+    await parent(ogil, nevara1);
+    await parent(ogil, nevara2);
+  });
+}
+
 export async function deletePerson(user: CurrentUser, id: string) {
   await sql`delete from people where id = ${id} and family_id = ${user.familyId}`;
 }

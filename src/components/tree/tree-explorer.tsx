@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { Images, List, Network, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, Images, List, Network, Pencil, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
 import {
-  addRelationshipAction, deletePersonAction, linkPersonUserAction, removeRelationshipAction, savePersonAction,
+  addRelationshipAction, addSampleRelativesAction, deletePersonAction, linkPersonUserAction, removeRelationshipAction,
+  savePersonAction, setAvatarAction,
 } from "@/actions/tree";
+import { useUploads } from "../upload-provider";
 import type { Person, Relationship } from "@/lib/tree";
 import { formatPartialDate, personName } from "@/lib/format";
 import { Badge, Button, cx, Dialog, EmptyState, Field, Glider, IconButton, Input, Notice, Select, Textarea } from "../ui";
@@ -148,7 +150,11 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
   return (
     <aside aria-label={personName(p)} className="animate-rise space-y-5 bg-surface p-5 lg:sticky lg:top-6 lg:self-start lg:animate-enter-x">
       <div className="flex items-start justify-between gap-2">
-        <div>
+        {p.avatarMediaId && (
+          // eslint-disable-next-line @next/next/no-img-element -- auth-gated media route, not a static asset
+          <img src={`/api/media/${p.avatarMediaId}/thumb`} alt="" className={cx("size-16 shrink-0 rounded-full object-cover", !p.isLiving && "grayscale")} />
+        )}
+        <div className="mr-auto">
           <h2 className="font-display text-2xl font-semibold uppercase leading-tight">{personName(p)}</h2>
           {p.patronymic && <p className="text-dim">{p.patronymic}</p>}
         </div>
@@ -170,6 +176,7 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
           <Images className="size-4" aria-hidden />Rasmlari
         </Link>
         {canEdit && <Button size="sm" onClick={onEdit}><Pencil className="size-4" aria-hidden />Tahrirlash</Button>}
+        {canEdit && <AvatarUpload person={p} onError={setError} />}
         {canEdit && (
           <Button size="sm" variant="ghost" onClick={async () => {
             if (!confirm(`${personName(p)} daraxtdan oʻchirilsinmi? Uning barcha bogʻlanishlari ham oʻchadi. Rasmlar qoladi.`)) return;
@@ -180,9 +187,59 @@ function PersonPanel({ person: p, people, relationships, byId, canEdit, isAdmin,
         )}
       </div>
 
+      {canEdit && !r.parents.length && !r.spouses.length && !r.children.length && (
+        <div className="space-y-2 border-t border-line pt-5">
+          <h3 className="flex items-center gap-2 font-medium"><Users className="size-4" aria-hidden />Namuna shajara</h3>
+          <p className="text-sm text-dim">
+            Bobo-buvi, ota-ona, turmush oʻrtogʻi, oʻgʻil, qiz va ikki nevara namunaviy ismlar bilan qoʻshiladi.
+            Keyin har birini tanlab, haqiqiy ismini yozasiz va rasmini qoʻyasiz, keraksizini oʻchirasiz.
+          </p>
+          <Button size="sm" onClick={async () => {
+            setError(null);
+            const res = await addSampleRelativesAction(p.id);
+            if (!res.ok) setError(res.error);
+          }}><Plus className="size-4" aria-hidden />Namuna qarindoshlar qoʻshish</Button>
+        </div>
+      )}
       {canEdit && <AddRelation person={p} people={people} />}
       {isAdmin && <LinkAccount person={p} members={members} />}
     </aside>
+  );
+}
+
+/** Picks a portrait from the device, sends it through the normal archive upload, then puts it in the person's medallion. */
+function AvatarUpload({ person, onError }: { person: Person; onError: (e: string | null) => void }) {
+  const { items, add } = useUploads();
+  const input = useRef<HTMLInputElement>(null);
+  const [key, setKey] = useState<string | null>(null);
+  const item = key ? items.find((i) => i.key === key) : undefined;
+  const mediaId = item && (item.status === "done" || item.status === "duplicate") ? item.mediaId : undefined;
+  const failed = item?.status === "failed" ? (item.error ?? "Rasm yuklanmadi") : null;
+  const busy = item?.status === "queued" || item?.status === "uploading" || item?.status === "processing";
+
+  useEffect(() => {
+    if (mediaId) void setAvatarAction(person.id, mediaId).then((r) => onError(r.ok ? null : r.error));
+  }, [mediaId, person.id, onError]);
+  useEffect(() => {
+    if (failed) onError(failed);
+  }, [failed, onError]);
+
+  return (
+    <>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        onError(null);
+        setKey(add([file], null)[0]);
+      }} />
+      <Button size="sm" disabled={busy} onClick={() => input.current?.click()}>
+        <Camera className="size-4" aria-hidden />
+        {busy
+          ? item?.status === "processing" ? "Ishlanmoqda…" : `Yuklanmoqda ${Math.round((item?.progress ?? 0) * 100)}%`
+          : person.avatarMediaId ? "Rasmni almashtirish" : "Rasm qoʻyish"}
+      </Button>
+    </>
   );
 }
 
