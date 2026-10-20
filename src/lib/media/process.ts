@@ -146,6 +146,16 @@ async function processVideo(file: string, mime: Sniffed["mime"], dir: string): P
   return { width: probe.width, height: probe.height, durationMs: probe.durationMs, takenAt: probe.createdAt, derivatives };
 }
 
+/** Small browser-playable copy (H.264, ≤1280px, CRF 28) that Telegram videos are archived as instead of the original. */
+export async function compressVideo(file: string, dir: string): Promise<string> {
+  const out = path.join(dir, "compact.mp4");
+  await runFfmpeg(["-i", file, "-map", "0:v:0", "-map", "0:a:0?",
+    "-vf", "scale='min(1280,iw)':'min(1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
+    "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", "-y", out], 4 * 60_000); // inside Vercel's 300 s
+  return out;
+}
+
 export function processMediaFile(file: string, sniffed: Sniffed, workDir: string): Promise<Processed> {
   return sniffed.kind === "image" ? processImage(file, sniffed.mime, workDir) : processVideo(file, sniffed.mime, workDir);
 }

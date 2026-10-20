@@ -90,7 +90,7 @@ export async function aiDescribeJob(job: Job) {
     select m.family_id, m.kind, m.variants, f.ai_enabled, m.deleted_at
     from media m join families f on f.id = m.family_id where m.id = ${mediaId}`;
   // Consent is re-checked at processing time: turning AI off stops queued work.
-  if (!m || !m.aiEnabled || m.deletedAt || m.kind !== "image" || !m.variants.includes("preview")) {
+  if (!m || !m.aiEnabled || m.deletedAt || m.kind !== "image") {
     if (m) await sql`update media set ai_status = 'skipped', ai_error = null where id = ${mediaId}`;
     return;
   }
@@ -99,8 +99,9 @@ export async function aiDescribeJob(job: Job) {
     return;
   }
   try {
-    // Only a small, metadata-free derivative leaves the server — never the original with EXIF/GPS.
-    const obj = await storage().get(mediaKey(m.familyId, mediaId, "preview"));
+    // Only a small, metadata-free file leaves the server — the preview, or for compact Telegram photos (no preview)
+    // the stored WebP, which is that same preview. Never an original with EXIF/GPS.
+    const obj = await storage().get(mediaKey(m.familyId, mediaId, m.variants.includes("preview") ? "preview" : "original"));
     if (!obj) throw new PermanentError("preview topilmadi");
     const webp = Buffer.from(await new Response(obj.body).arrayBuffer());
     const jpeg = await sharp(webp).resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer();

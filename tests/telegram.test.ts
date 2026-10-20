@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { POST as webhook } from "../src/app/api/telegram/webhook/route";
 import { albumFromCaption, createLinkCode, handleUpdate, type TgUpdate } from "../src/lib/telegram";
-import { drainJobs, fakeServer, jpegFixture, makeUser, read, resetDb, sql } from "./helpers";
+import sharp from "sharp";
+import { mediaKey, storage } from "../src/lib/storage";
+import { drainJobs, fakeServer, jpegFixture, makeUser, read, resetDb, sql, videoFixture } from "./helpers";
 
 type Call = { method: string; body: Record<string, unknown> };
 let calls: Call[] = [];
@@ -114,6 +116,32 @@ describe("ingestion", () => {
     await drainJobs();
     assert.equal(Number((await sql`select count(*) from media`)[0].count), 1);
     assert.equal(Number((await sql`select count(*) from jobs`)[0].count), 1);
+  });
+
+  test("Telegram photos and videos are archived as smaller compact copies, photos without EXIF/GPS", async () => {
+    await linkedMember();
+    const jpeg = read(await jpegFixture({ r: 30, g: 140, b: 90 }, "tg-compact.jpg"));
+    const mp4 = read(videoFixture("tg-hq.mp4", ["-c:v", "libx264", "-crf", "8", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k"]));
+    files.set("photos/c1.jpg", jpeg);
+    files.set("photos/v1.jpg", mp4); // the fake getFile always answers photos/<id>.jpg
+    await handleUpdate(photo("c1"));
+    await handleUpdate(msg({ video: { file_id: "v1", file_unique_id: "v1", file_name: "kino.mov", mime_type: "video/mp4", file_size: mp4.length } }));
+    await drainJobs();
+
+    const rows = await sql`select id, family_id, kind, mime, size_bytes, original_name, variants, width from media where status = 'ready' order by kind`;
+    const [img, vid] = rows;
+    assert.deepEqual([img.mime, img.variants, img.width], ["image/webp", ["thumb"], 1600]);
+    assert.ok(Number(img.sizeBytes) < jpeg.length, "photo got smaller");
+    assert.match(img.originalName, /\.webp$/);
+    const stored = Buffer.from(await new Response((await storage().get(mediaKey(img.familyId, img.id, "original")))!.body).arrayBuffer());
+    const meta = await sharp(stored).metadata();
+    assert.equal(meta.format, "webp");
+    assert.equal(meta.exif, undefined, "no EXIF/GPS kept");
+
+    assert.deepEqual([vid.mime, vid.originalName], ["video/mp4", "kino.mp4"]);
+    assert.ok(Number(vid.sizeBytes) < mp4.length, "video got smaller");
+    assert.ok(!vid.variants.includes("playback"), "the compact copy plays directly");
+    assert.ok(vid.variants.includes("preview"), "videos keep their poster preview");
   });
 
   test("media group with #hashtag lands in one named album", async () => {

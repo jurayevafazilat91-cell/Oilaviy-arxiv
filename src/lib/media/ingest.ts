@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, open, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import sharp from "sharp";
 import { sql } from "../db";
 import { env, MB } from "../env";
 import { enqueue, PermanentError } from "../jobs";
 import { mediaKey, mediaPrefix, storage } from "../storage";
-import { processMediaFile } from "./process";
+import { compressVideo, processMediaFile } from "./process";
 import { sniff, type Sniffed } from "./sniff";
 
 export type IngestInput = {
@@ -107,10 +108,31 @@ export async function ingestFile(input: IngestInput): Promise<IngestResult> {
 
   const work = await mkdtemp(path.join(await tmpDir("work"), "m-"));
   try {
-    const result = await processMediaFile(input.filePath, sniffed, work);
+    // Telegram media is archived as a compact copy instead of the original whenever that copy is smaller:
+    // the family chose storage over full quality there. Web uploads keep their originals.
+    const compact = input.source === "telegram";
+    let file = input.filePath;
+    let mime: Sniffed["mime"] = sniffed.mime;
+    if (compact && sniffed.kind === "video") {
+      const small = await compressVideo(input.filePath, work).catch(() => null); // on failure keep the original, never lose the video
+      if (small && (await stat(small)).size < size) [file, mime] = [small, "video/mp4"];
+    }
+    const result = await processMediaFile(file, { kind: sniffed.kind, mime }, work);
+    let derivatives = result.derivatives;
+    const preview = derivatives.find((d) => d.variant === "preview");
+    if (compact && sniffed.kind === "image" && preview && (await stat(preview.path)).size < size) {
+      // The ≤2048px WebP preview (EXIF/GPS stripped) becomes the stored file; no second copy as "preview".
+      const meta = await sharp(await readFile(preview.path)).metadata(); // a buffer: a path would stay locked on Windows
+      [file, mime, result.width, result.height] = [preview.path, "image/webp", meta.width ?? null, meta.height ?? null];
+      derivatives = derivatives.filter((d) => d !== preview);
+    }
+    const replaced = file !== input.filePath;
+    const storedSize = replaced ? (await stat(file)).size : size;
+    const name = replaced ? `${input.originalName.replace(/\.[^.]*$/, "")}.${mime === "image/webp" ? "webp" : "mp4"}` : input.originalName;
+
     const store = storage();
-    await store.put(mediaKey(input.familyId, row.id, "original"), input.filePath, sniffed.mime);
-    for (const d of result.derivatives) await store.put(mediaKey(input.familyId, row.id, d.variant), d.path, d.contentType);
+    await store.put(mediaKey(input.familyId, row.id, "original"), file, mime);
+    for (const d of derivatives) await store.put(mediaKey(input.familyId, row.id, d.variant), d.path, d.contentType);
 
     const [family] = await sql<{ aiEnabled: boolean }[]>`select ai_enabled from families where id = ${input.familyId}`;
     const runAi = Boolean(family?.aiEnabled && env().GEMINI_API_KEY && sniffed.kind === "image");
@@ -118,7 +140,8 @@ export async function ingestFile(input: IngestInput): Promise<IngestResult> {
       update media set status = 'ready', error = null,
         width = ${result.width}, height = ${result.height}, duration_ms = ${result.durationMs},
         taken_at = coalesce(taken_at, ${result.takenAt}),
-        variants = ${result.derivatives.map((d) => d.variant)},
+        mime = ${mime}, size_bytes = ${storedSize}, original_name = ${name.slice(0, 255)},
+        variants = ${derivatives.map((d) => d.variant)},
         ai_status = ${runAi ? "pending" : null}, updated_at = now()
       where id = ${row.id}`;
     if (input.albumId) await addToAlbum(input.familyId, input.albumId, row.id);

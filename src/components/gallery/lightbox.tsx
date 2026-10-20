@@ -146,8 +146,9 @@ export function Lightbox({ items, index, ctx, onIndex, onClose, onRemoved, onUpd
                   >
                     Brauzeringiz bu videoni koʻrsata olmaydi. <a href={`/api/media/${item.id}/original?download`}>Yuklab oling</a>.
                   </video>
-                ) : hasPreview ? (
-                  <ProgressiveImage id={item.id} alt={detail?.aiCaption ?? item.title ?? ""} />
+                ) : item.status === "ready" ? (
+                  // Compact Telegram photos have no separate preview: the stored file is already preview-sized.
+                  <ProgressiveImage id={item.id} large={hasPreview ? "preview" : "original"} alt={detail?.aiCaption ?? item.title ?? ""} />
                 ) : (
                   <p className="text-dim">{item.status === "failed" ? `Qayta ishlashda xato: ${item.error ?? ""}` : "Qayta ishlanmoqda…"}</p>
                 )}
@@ -200,7 +201,7 @@ function NavButton({ side, disabled, onClick }: { side: "left" | "right"; disabl
 }
 
 /** Shows the cached thumbnail instantly, then swaps in the large preview once decoded. */
-function ProgressiveImage({ id, alt }: { id: string; alt: string }) {
+function ProgressiveImage({ id, large, alt }: { id: string; large: "preview" | "original"; alt: string }) {
   const [loaded, setLoaded] = useState(false);
   return (
     <div className="relative flex size-full items-center justify-center">
@@ -208,7 +209,7 @@ function ProgressiveImage({ id, alt }: { id: string; alt: string }) {
       <img src={`/api/media/${id}/thumb`} alt="" aria-hidden className={cx("absolute inset-0 size-full object-contain blur-sm transition-opacity duration-300 ease-out", loaded && "opacity-0")} />
       {/* eslint-disable-next-line @next/next/no-img-element -- private, authorized files */}
       <img
-        src={`/api/media/${id}/preview`}
+        src={`/api/media/${id}/${large}`}
         alt={alt}
         onLoad={() => setLoaded(true)}
         className={cx("relative size-full object-contain transition-opacity duration-300 ease-out", loaded ? "opacity-100" : "opacity-0")}
