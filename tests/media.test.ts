@@ -101,6 +101,18 @@ describe("photo upload → storage → authorized access", () => {
     assert.deepEqual(list.items.map((i) => i.id), [media.id]);
   });
 
+  test("search treats every Uzbek apostrophe (' ’ ‘ ` ʼ ʻ) as the same letter", async () => {
+    const owner = await makeUser("owner");
+    const up = await uploadBytes(owner, read(await jpegFixture()), "oila.jpg");
+    await sql`update media set title = 'Togʻda dam olish', ai_caption = ${"Ko'z rasmi"}, ai_tags = ${["gʼisht"]} where id = ${up.mediaId!}`;
+    const found = async (f: Parameters<typeof listMedia>[1]) => (await listMedia(owner, f)).items.length;
+    assert.equal(await found({ q: "tog'" }), 1, "ASCII apostrophe finds ʻ in the title");
+    assert.equal(await found({ q: "tog’" }), 1, "typographic apostrophe too");
+    assert.equal(await found({ keywords: ["koʻz"] }), 1, "AI keyword with ʻ finds ' in the caption");
+    assert.equal(await found({ keywords: ["g'isht"] }), 1, "ʼ in a tag");
+    assert.equal(await found({ q: "dengiz" }), 0);
+  });
+
   test("another family cannot see, list or fetch the file; viewer in same family can", async () => {
     const owner = await makeUser("owner");
     const up = await uploadBytes(owner, read(await jpegFixture()), "a.jpg");

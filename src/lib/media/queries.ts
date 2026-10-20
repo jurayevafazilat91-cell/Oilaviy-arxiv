@@ -31,13 +31,18 @@ export type MediaItem = {
 
 const likeEscape = (s: string) => `%${s.replace(/[\\%_]/g, "\\$&")}%`;
 
+// Uzbek writes oʻ/gʻ with whichever apostrophe the keyboard gives (' ’ ‘ ` ʼ ʻ): compare them all as ʻ.
+const APOSTROPHES = "'’‘`ʼ";
+const foldApostrophes = (s: string) => s.replace(/['’‘`ʼ]/g, "ʻ");
+
 function wordMatch(word: string) {
-  const p = likeEscape(word);
-  return sql`(m.title ilike ${p} or m.description ilike ${p} or m.original_name ilike ${p}
-    or coalesce(m.ai_caption, '') ilike ${p}
-    or array_to_string(m.tags, ' ') ilike ${p} or array_to_string(m.ai_tags, ' ') ilike ${p}
+  const p = likeEscape(foldApostrophes(word));
+  const has = (col: ReturnType<typeof sql>) => sql`translate(${col}, ${APOSTROPHES}, ${"ʻ".repeat(APOSTROPHES.length)}) ilike ${p}`;
+  return sql`(${has(sql`m.title`)} or ${has(sql`m.description`)} or ${has(sql`m.original_name`)}
+    or ${has(sql`coalesce(m.ai_caption, '')`)}
+    or ${has(sql`array_to_string(m.tags, ' ')`)} or ${has(sql`array_to_string(m.ai_tags, ' ')`)}
     or exists (select 1 from media_people mp join people pe on pe.id = mp.person_id
-               where mp.media_id = m.id and (pe.first_name ilike ${p} or pe.last_name ilike ${p})))`;
+               where mp.media_id = m.id and (${has(sql`pe.first_name`)} or ${has(sql`pe.last_name`)})))`;
 }
 
 const encodeCursor = (sortAt: string, id: string) => Buffer.from(`${sortAt}|${id}`).toString("base64url");
