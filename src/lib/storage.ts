@@ -99,7 +99,8 @@ class S3Storage implements Storage, DirectStore {
     const e = env();
     this.client = new S3Client({
       region: e.S3_REGION,
-      endpoint: e.S3_ENDPOINT,
+      // Origin only: Cloudflare shows the endpoint with "/<bucket>" appended, which would double the bucket in every key.
+      endpoint: e.S3_ENDPOINT ? new URL(e.S3_ENDPOINT).origin : undefined,
       // Path-style keeps signed URLs on the endpoint host, the one origin the CSP allows.
       forcePathStyle: true,
       credentials: { accessKeyId: e.S3_ACCESS_KEY_ID ?? "", secretAccessKey: e.S3_SECRET_ACCESS_KEY ?? "" },
