@@ -8,7 +8,7 @@ import { getMediaDetail, getMediaForFile, listMedia } from "../src/lib/media/que
 import { exifToDate, parseProbe, playbackPlan } from "../src/lib/media/process";
 import { purgeMedia } from "../src/lib/media/ingest";
 import { sniff } from "../src/lib/media/sniff";
-import { cancelUpload, completeUpload, createUpload, getUpload, uploadPath, writeChunk, type UploadRow } from "../src/lib/media/uploads";
+import { cancelUpload, CHUNK_SIZE, completeUpload, contiguousBytes, createUpload, getUpload, uploadPath, writeChunk, type UploadRow } from "../src/lib/media/uploads";
 import { mediaKey, mediaPrefix, storage } from "../src/lib/storage";
 import { drainJobs, jpegFixture, makeUser, read, resetDb, sql, videoFixture } from "./helpers";
 
@@ -24,6 +24,20 @@ async function uploadBytes(user: Awaited<ReturnType<typeof makeUser>>, bytes: Bu
 
 beforeEach(resetDb);
 after(() => sql.end());
+
+describe("direct (bucket) uploads", () => {
+  test("only consecutive full-size parts from part 1 count as received", () => {
+    const MB8 = CHUNK_SIZE;
+    const size = MB8 * 2 + 100;
+    const p = (part: number, s: number) => ({ part, size: s, etag: `"${part}"` });
+    assert.equal(contiguousBytes([], size), 0);
+    assert.equal(contiguousBytes([p(1, MB8), p(2, MB8), p(3, 100)], size), size, "complete");
+    assert.equal(contiguousBytes([p(1, MB8), p(3, 100)], size), MB8, "gap stops the count");
+    assert.equal(contiguousBytes([p(1, MB8), p(2, MB8 - 1), p(3, 100)], size), MB8, "short middle part is not accepted");
+    assert.equal(contiguousBytes([p(1, MB8), p(2, MB8), p(3, 200)], size), MB8 * 2, "oversized last part is not accepted");
+    assert.equal(contiguousBytes([p(1, 500)], 500), 500, "single small file");
+  });
+});
 
 describe("file type detection", () => {
   test("recognises supported formats by content and rejects others", async () => {

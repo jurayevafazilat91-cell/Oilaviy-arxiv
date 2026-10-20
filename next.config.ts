@@ -2,16 +2,18 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
+// With object storage the browser uploads to and loads media from the bucket directly (signed URLs).
+const bucket = process.env.STORAGE_DRIVER === "s3" && process.env.S3_ENDPOINT ? ` ${new URL(process.env.S3_ENDPOINT).origin}` : "";
 
 // Next.js hydration needs inline scripts; dev mode also needs eval for fast refresh.
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "media-src 'self' blob:",
+  `img-src 'self' data: blob:${bucket}`,
+  `media-src 'self' blob:${bucket}`,
   "font-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self'${bucket}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

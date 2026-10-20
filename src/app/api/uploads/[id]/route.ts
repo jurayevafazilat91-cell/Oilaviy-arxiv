@@ -1,5 +1,9 @@
 import { apiUser, assertSameOrigin, handleApiError, HttpError } from "@/lib/http";
 import { cancelUpload, getUpload, MAX_CHUNK_BYTES, publicUpload, writeChunk } from "@/lib/media/uploads";
+import { drainAfterResponse } from "@/lib/worker";
+
+// Status polls may run queued processing in their spare time (Vercel), so allow the full budget.
+export const maxDuration = 300;
 
 const isUuid = (id: string) => /^[0-9a-f-]{36}$/.test(id);
 
@@ -8,7 +12,10 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/uploads/[id]">)
     const user = await apiUser();
     const { id } = await ctx.params;
     if (!isUuid(id)) throw new HttpError(404, "Yuklash topilmadi");
-    return Response.json(publicUpload(await getUpload(user, id)));
+    const upload = await getUpload(user, id);
+    // The browser polls while a file is processed: each poll can retry a job that waits for its backoff.
+    if (upload.status === "processing") drainAfterResponse();
+    return Response.json(publicUpload(upload));
   } catch (err) {
     return handleApiError(err);
   }

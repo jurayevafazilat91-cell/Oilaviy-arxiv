@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
 
-export async function migrate(url = process.env.DATABASE_URL) {
+// Vercel's Neon integration also provides a direct (non-pooled) URL; DDL is safest over a direct connection.
+export async function migrate(url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL) {
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
     await sql`create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`;

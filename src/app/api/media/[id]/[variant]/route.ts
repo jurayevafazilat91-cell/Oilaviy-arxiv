@@ -1,6 +1,6 @@
 import { apiUser, handleApiError, HttpError } from "@/lib/http";
 import { getMediaForFile } from "@/lib/media/queries";
-import { mediaKey, storage, type ByteRange, type Variant } from "@/lib/storage";
+import { mediaKey, SIGNED_URL_SECONDS, storage, type ByteRange, type Variant } from "@/lib/storage";
 
 const VARIANTS = new Set<Variant>(["original", "thumb", "preview", "playback"]);
 
@@ -35,6 +35,20 @@ export async function GET(req: Request, ctx: RouteContext<"/api/media/[id]/[vari
 
     const key = mediaKey(media.familyId, media.id, variant as Variant);
     const store = storage();
+    const contentType = variant === "original" ? media.mime : variant === "playback" ? "video/mp4" : "image/webp";
+    const download = new URL(req.url).searchParams.has("download");
+    const disposition = contentDisposition(variant === "original" ? media.originalName : `${media.id}-${variant}`, !download);
+
+    if (store.direct) {
+      // Object storage: after the family check, send the browser to a short-lived signed link so bytes
+      // (and video Range requests) go bucket → browser instead of through the function.
+      const url = await store.direct.downloadUrl(key, { contentType, disposition });
+      return new Response(null, {
+        status: 302,
+        headers: { Location: url, "Cache-Control": `private, max-age=${SIGNED_URL_SECONDS - 300}` },
+      });
+    }
+
     const size = variant === "original" ? Number(media.sizeBytes) : await store.size(key);
     if (size == null) throw new HttpError(404, "Topilmadi");
 
@@ -43,8 +57,6 @@ export async function GET(req: Request, ctx: RouteContext<"/api/media/[id]/[vari
     const obj = await store.get(key, range ?? undefined);
     if (!obj) throw new HttpError(404, "Topilmadi");
 
-    const contentType = variant === "original" ? media.mime : variant === "playback" ? "video/mp4" : "image/webp";
-    const download = new URL(req.url).searchParams.has("download");
     const headers = new Headers({
       "Content-Type": contentType,
       "Content-Length": String(obj.length),
@@ -52,7 +64,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/media/[id]/[vari
       // Content never changes for a given id+variant; keep it out of shared caches.
       "Cache-Control": "private, max-age=31536000, immutable",
       "X-Content-Type-Options": "nosniff",
-      "Content-Disposition": contentDisposition(variant === "original" ? media.originalName : `${media.id}-${variant}`, !download),
+      "Content-Disposition": disposition,
     });
     if (range) headers.set("Content-Range", `bytes ${range.start}-${range.end}/${obj.size}`);
     return new Response(obj.body, { status: range ? 206 : 200, headers });

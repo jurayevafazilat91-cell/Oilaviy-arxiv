@@ -3,12 +3,18 @@ import { copyFile, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  ListPartsCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "./env";
 
 export type Variant = "original" | "thumb" | "preview" | "playback";
@@ -21,7 +27,23 @@ export interface Storage {
   get(key: string, range?: ByteRange): Promise<StoredObject | null>;
   size(key: string): Promise<number | null>;
   deletePrefix(prefix: string): Promise<void>;
+  /** Present only on object stores: the browser talks to the bucket directly through signed URLs. */
+  direct?: DirectStore;
 }
+
+export type UploadedPart = { part: number; size: number; etag: string };
+
+export interface DirectStore {
+  startMultipart(key: string): Promise<string>;
+  partUrl(key: string, uploadId: string, part: number): Promise<string>;
+  listParts(key: string, uploadId: string): Promise<UploadedPart[]>;
+  completeMultipart(key: string, uploadId: string, parts: UploadedPart[]): Promise<void>;
+  abortMultipart(key: string, uploadId: string): Promise<void>;
+  downloadUrl(key: string, opts: { contentType: string; disposition: string }): Promise<string>;
+}
+
+/** Signed links stay valid this long; the media route caches its redirect for less than that. */
+export const SIGNED_URL_SECONDS = 3600;
 
 const variantFile: Record<Variant, string> = {
   original: "original",
@@ -70,15 +92,58 @@ class FsStorage implements Storage {
   }
 }
 
-class S3Storage implements Storage {
+class S3Storage implements Storage, DirectStore {
   private client: S3Client;
+  readonly direct: DirectStore = this;
   constructor(private bucket: string) {
     const e = env();
     this.client = new S3Client({
       region: e.S3_REGION,
       endpoint: e.S3_ENDPOINT,
+      // Path-style keeps signed URLs on the endpoint host, the one origin the CSP allows.
+      forcePathStyle: true,
       credentials: { accessKeyId: e.S3_ACCESS_KEY_ID ?? "", secretAccessKey: e.S3_SECRET_ACCESS_KEY ?? "" },
     });
+  }
+
+  async startMultipart(key: string) {
+    const res = await this.client.send(new CreateMultipartUploadCommand({ Bucket: this.bucket, Key: key }));
+    return res.UploadId!;
+  }
+
+  partUrl(key: string, uploadId: string, part: number) {
+    return getSignedUrl(this.client, new UploadPartCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId, PartNumber: part }), { expiresIn: 900 });
+  }
+
+  async listParts(key: string, uploadId: string) {
+    const parts: UploadedPart[] = [];
+    let marker: string | undefined;
+    do {
+      const res = await this.client.send(new ListPartsCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId, PartNumberMarker: marker }));
+      for (const p of res.Parts ?? []) parts.push({ part: p.PartNumber!, size: Number(p.Size), etag: p.ETag! });
+      marker = res.IsTruncated ? res.NextPartNumberMarker : undefined;
+    } while (marker);
+    return parts.sort((a, b) => a.part - b.part);
+  }
+
+  async completeMultipart(key: string, uploadId: string, parts: UploadedPart[]) {
+    await this.client.send(new CompleteMultipartUploadCommand({
+      Bucket: this.bucket, Key: key, UploadId: uploadId,
+      MultipartUpload: { Parts: parts.map((p) => ({ PartNumber: p.part, ETag: p.etag })) },
+    }));
+  }
+
+  async abortMultipart(key: string, uploadId: string) {
+    await this.client.send(new AbortMultipartUploadCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId }));
+  }
+
+  downloadUrl(key: string, opts: { contentType: string; disposition: string }) {
+    return getSignedUrl(this.client, new GetObjectCommand({
+      Bucket: this.bucket, Key: key,
+      ResponseContentType: opts.contentType,
+      ResponseContentDisposition: opts.disposition,
+      ResponseCacheControl: "private, max-age=31536000, immutable",
+    }), { expiresIn: SIGNED_URL_SECONDS });
   }
 
   async put(key: string, filePath: string, contentType: string) {
@@ -131,6 +196,8 @@ export function storage(): Storage {
       if (!e.S3_BUCKET || !e.S3_ENDPOINT) throw new Error("S3_BUCKET va S3_ENDPOINT sozlanmagan");
       instance = new S3Storage(e.S3_BUCKET);
     } else {
+      // Vercel's disk is read-only and per-instance; files written there would vanish.
+      if (process.env.VERCEL) throw new Error("Vercel'da STORAGE_DRIVER=s3 (Cloudflare R2) sozlanishi kerak");
       instance = new FsStorage(path.resolve(e.STORAGE_DIR));
     }
   }

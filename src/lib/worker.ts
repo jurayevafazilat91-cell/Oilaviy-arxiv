@@ -1,10 +1,11 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { after } from "next/server";
 import { aiDescribeJob } from "./ai";
 import { sql } from "./db";
 import { runOneJob, type JobHandler } from "./jobs";
 import { purgeMedia, tmpDir } from "./media/ingest";
-import { processUploadJob, uploadPath } from "./media/uploads";
+import { discardUploadData, processUploadJob } from "./media/uploads";
 import { telegramIngestJob } from "./telegram";
 
 export const handlers: Record<string, JobHandler> = {
@@ -18,10 +19,10 @@ const TRASH_DAYS = 30;
 
 /** Periodic housekeeping: expired uploads, trash, stale locks, old bookkeeping rows, orphan temp files. */
 export async function cleanup() {
-  const stale = await sql<{ id: string }[]>`
+  const stale = await sql<{ id: string; storageUploadId: string | null }[]>`
     update uploads set status = 'cancelled', error = 'Muddati oʻtdi', updated_at = now()
-    where status = 'uploading' and updated_at < now() - interval '24 hours' returning id`;
-  for (const u of stale) await rm(await uploadPath(u.id), { force: true });
+    where status = 'uploading' and updated_at < now() - interval '24 hours' returning id, storage_upload_id`;
+  for (const u of stale) await discardUploadData(u);
 
   const expired = await sql<{ id: string }[]>`
     select id from media where deleted_at < now() - make_interval(days => ${TRASH_DAYS}) limit 500`;
@@ -67,4 +68,31 @@ export function startWorker({ concurrency = 2, idleMs = 2000 } = {}) {
   setTimeout(sweep, 10_000);
   setInterval(sweep, 30 * 60_000).unref();
   console.log(`worker: ${concurrency} ta oqim ishga tushdi`);
+}
+
+/** Runs due jobs until none are left or the time budget is spent (serverless: one invocation's spare time). */
+export async function drainJobs(budgetMs = 200_000) {
+  const started = Date.now();
+  // A serverless invocation is killed after maxDuration (300 s); a lock older than that belongs to a dead one.
+  await sql`update jobs set status = 'queued', locked_at = null where status = 'running' and locked_at < now() - interval '10 minutes'`;
+  while (Date.now() - started < budgetMs) {
+    const worked = await runOneJob(handlers).catch((err) => {
+      console.error("drain:", (err as Error).message);
+      return false;
+    });
+    if (!worked) break;
+  }
+}
+
+/**
+ * On Vercel nothing runs between requests, so a request that queued work drains the queue right after
+ * its response (within the same invocation's maxDuration). Elsewhere the resident worker does it.
+ */
+export function drainAfterResponse() {
+  if (!process.env.VERCEL) return;
+  try {
+    after(() => drainJobs());
+  } catch {
+    // Outside a request (scripts): the next request or the daily cron picks the job up.
+  }
 }

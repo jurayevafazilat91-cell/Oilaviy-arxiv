@@ -2,6 +2,9 @@ import { safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { handleUpdate, type TgUpdate } from "@/lib/telegram";
 
+// On Vercel the download/ingest job runs after this response, inside the same invocation.
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   const secret = env().TELEGRAM_WEBHOOK_SECRET;
   const given = req.headers.get("x-telegram-bot-api-secret-token") ?? "";

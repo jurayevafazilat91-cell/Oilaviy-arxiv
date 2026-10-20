@@ -3,18 +3,21 @@ import { z } from "zod";
 const optional = z.string().optional().transform((v) => (v ? v : undefined));
 const bool = (d: boolean) => z.string().optional().transform((v) => (v ? v === "true" || v === "1" : d));
 
+// Vercel functions get a read-only disk except /tmp (512 MB) and stop after 300 s: smaller videos only.
+const onVercel = Boolean(process.env.VERCEL);
+
 const schema = z.object({
   APP_URL: z.url().default("http://localhost:3000"),
   STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
   STORAGE_DIR: z.string().default("./.data/storage"),
-  TMP_DIR: z.string().default("./.data/tmp"),
+  TMP_DIR: z.string().default(onVercel ? "/tmp/oilaviy" : "./.data/tmp"),
   S3_ENDPOINT: optional,
   S3_REGION: z.string().default("auto"),
   S3_BUCKET: optional,
   S3_ACCESS_KEY_ID: optional,
   S3_SECRET_ACCESS_KEY: optional,
   MAX_IMAGE_MB: z.coerce.number().int().positive().default(50),
-  MAX_VIDEO_MB: z.coerce.number().int().positive().default(2048),
+  MAX_VIDEO_MB: z.coerce.number().int().positive().default(onVercel ? 200 : 2048),
   WORKER_ENABLED: bool(true),
   FFMPEG_PATH: optional,
   GEMINI_API_KEY: optional,

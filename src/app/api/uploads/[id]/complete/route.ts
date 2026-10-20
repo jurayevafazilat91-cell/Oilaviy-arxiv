@@ -1,6 +1,9 @@
 import { apiUser, assertSameOrigin, handleApiError, HttpError } from "@/lib/http";
 import { completeUpload, getUpload, publicUpload } from "@/lib/media/uploads";
 
+// On Vercel the processing job runs after this response, inside the same invocation.
+export const maxDuration = 300;
+
 export async function POST(req: Request, ctx: RouteContext<"/api/uploads/[id]/complete">) {
   try {
     assertSameOrigin(req);

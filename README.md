@@ -83,6 +83,43 @@ Google AI Studio **bepul** tarifida yuborilgan maʼlumotlar Google mahsulotlarin
 toʻlovli (billing yoqilgan) loyihada bunday emas — shaxsiy rasmlar uchun billing yoqilgan kalit tavsiya etiladi.
 Kalit faqat serverda (`GEMINI_API_KEY`) saqlanadi va brauzerga hech qachon yuborilmaydi. AI oʻchiq/xato boʻlsa arxivning qolgan qismi toʻliq ishlaydi.
 
+## Vercel (serverless)
+
+Vercel’da doimiy jarayon yoʻq, shuning uchun ilova oʻzini moslaydi (`VERCEL` muhit oʻzgaruvchisi boʻyicha):
+fayllar brauzerdan **toʻgʻridan-toʻgʻri R2’ga** 8 MB lik qismlarda yuboriladi (imzolangan havolalar), rasmlar ham R2’dan imzolangan havola orqali ochiladi,
+fon ishlari har soʻrovdan keyin (`after()`) va kuniga bir marta cron’da bajariladi, vaqtinchalik fayllar `/tmp` da.
+
+**Cheklovlar (Hobby tarif):** funksiya 300 s da toʻxtatiladi va `/tmp` 512 MB — shuning uchun video chegarasi sukut boʻyicha 200 MB
+(`MAX_VIDEO_MB`). Uzun HEVC videolarni qayta kodlash 300 s ga sigʻmasligi mumkin. Rate-limit har instansda alohida.
+
+1. **Baza (Neon):** Vercel → loyiha → *Storage* → *Create Database* → **Neon** → region **Frankfurt (eu-central-1)**.
+   Integratsiya `DATABASE_URL` va `DATABASE_URL_UNPOOLED` ni oʻzi qoʻshadi. Migratsiyalar har build’da avtomatik bajariladi (`vercel-build`).
+2. **Fayl ombori (Cloudflare R2):** dash.cloudflare.com → *R2* → *Create bucket* (masalan `oilaviy-arxiv`, public access **yoqilmaydi**).
+   *R2 → Manage API tokens → Create API token*: ruxsat **Object Read & Write**, faqat shu bucket. Access Key ID va Secret’ni saqlang.
+   Endpoint: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+3. **R2 CORS** (bucket → *Settings → CORS policy*), aks holda brauzer yuklay olmaydi:
+
+   ```json
+   [{ "AllowedOrigins": ["https://SAYTINGIZ.vercel.app"], "AllowedMethods": ["PUT", "GET"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600 }]
+   ```
+
+4. **Bucket lifecycle** (tavsiya): *Settings → Object lifecycle rules → Abort incomplete multipart uploads after 1 day*.
+5. **Vercel Environment Variables** (Settings → Environment Variables), keyin *Redeploy*:
+
+   | Oʻzgaruvchi | Qiymat |
+   |---|---|
+   | `APP_URL` | `https://SAYTINGIZ.vercel.app` |
+   | `STORAGE_DRIVER` | `s3` |
+   | `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+   | `S3_REGION` | `auto` |
+   | `S3_BUCKET` | bucket nomi |
+   | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 token kalitlari |
+   | `CRON_SECRET` | 32+ belgili tasodifiy qator (cron’ni himoya qiladi) |
+
+   Telegram/Gemini kerak boʻlsa, ularning oʻzgaruvchilarini ham qoʻshing, keyin webhook’ni `npm run telegram:webhook` bilan
+   (`APP_URL` Vercel manzili boʻlgan holda) roʻyxatdan oʻtkazing.
+6. Saytni oching → `/setup` da oila va egasini yarating.
+
 ## Production (bitta VPS)
 
 ```bash

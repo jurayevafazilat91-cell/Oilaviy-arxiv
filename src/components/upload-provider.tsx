@@ -90,7 +90,10 @@ async function withRetry<T>(fn: () => Promise<T>, signal: AbortSignal, attempts 
   }
 }
 
-type PublicUpload = { id: string; status: string; receivedBytes: number; sizeBytes: number; chunkSize: number; mediaId: string | null; error: string | null };
+type PublicUpload = {
+  id: string; status: string; receivedBytes: number; sizeBytes: number; chunkSize: number;
+  mediaId: string | null; error: string | null; direct: boolean;
+};
 
 export function UploadProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<UploadItem[]>([]);
@@ -119,9 +122,20 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       while (up.status === "uploading" && offset < item.file.size) {
         const end = Math.min(offset + up.chunkSize, item.file.size);
         const start = offset;
-        const res = await withRetry(() => putChunk(`/api/uploads/${up.id}?offset=${start}`, item.file.slice(start, end),
-          (loaded) => patch(item.key, { progress: Math.min((start + loaded) / item.file.size, 0.99) }), signal), signal);
-        offset = res.receivedBytes;
+        const blob = item.file.slice(start, end);
+        const onProgress = (loaded: number) => patch(item.key, { progress: Math.min((start + loaded) / item.file.size, 0.99) });
+        if (up.direct) {
+          // Object storage: the part goes straight to the bucket through a fresh signed URL (every retry gets a new one).
+          const part = start / up.chunkSize + 1;
+          await withRetry(async () => {
+            const { url } = await api<{ url: string }>(`/api/uploads/${up.id}/parts`, { method: "POST", body: JSON.stringify({ part }), signal });
+            return putChunk(url, blob, onProgress, signal);
+          }, signal);
+          offset = end;
+        } else {
+          const res = await withRetry(() => putChunk(`/api/uploads/${up.id}?offset=${start}`, blob, onProgress, signal), signal);
+          offset = res.receivedBytes;
+        }
         patch(item.key, { progress: offset / item.file.size });
       }
       if (up.status === "uploading") {

@@ -15,6 +15,8 @@ export async function enqueue(
     insert into jobs (type, payload, dedupe_key, run_at, max_attempts)
     values (${type}, ${sql.json(payload as never)}, ${opts.dedupeKey ?? null}, ${opts.runAt ?? new Date()}, ${opts.maxAttempts ?? 5})
     on conflict do nothing`;
+  // Imported lazily: worker.ts imports this module.
+  if (process.env.VERCEL) (await import("./worker")).drainAfterResponse();
 }
 
 export const backoffSeconds = (attempt: number) => Math.min(15 * 2 ** (attempt - 1), 3600);
