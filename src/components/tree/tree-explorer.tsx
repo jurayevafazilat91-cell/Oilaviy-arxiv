@@ -63,7 +63,10 @@ export function TreeExplorer({ people, relationships, canEdit, isAdmin, members 
             {view === "tree"
               ? <TreeCanvas people={people} relationships={relationships} selectedId={selectedId} onSelect={setSelectedId} />
               : <PeopleList people={people} relationships={relationships} byId={byId} onSelect={setSelectedId} selectedId={selectedId} />}
-            <p className="mt-2 text-sm text-dim">Uzuq chiziq — asrab olingan/oʻgay bogʻlanish yoki ajrashgan juftlik.</p>
+            <p className="mt-2 text-sm text-dim">
+              Odamni tanlang — uning ajdodlari va avlodlari yoritiladi. Toʻq yoki kulrang medalyon — vafot etgan.
+              Uzuq chiziq — asrab olingan/oʻgay bogʻlanish yoki ajrashgan juftlik.
+            </p>
           </div>
           {selected ? (
             <PersonPanel

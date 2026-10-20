@@ -2,12 +2,16 @@
 
 export type LayoutRel = { type: "parent" | "spouse"; personA: string; personB: string; subtype: string };
 export type PositionedNode = { id: string; x: number; y: number; gen: number };
-export type TreeEdge = { key: string; d: string; dashed: boolean };
+// from/to: the people an edge joins, so a selected person's bloodline can light up. gen: row of its lower end.
+export type TreeEdge = { key: string; d: string; dashed: boolean; from: string[]; to: string[]; gen: number; knot?: { x: number; y: number } };
 
-export const CARD_W = 176;
-export const CARD_H = 76;
-const GAP_X = 32;
-const GAP_Y = 104;
+// A node is a round medallion with the name underneath; MEDAL_CY/MEDAL_R place the medallion inside the node box.
+export const CARD_W = 152;
+export const CARD_H = 152;
+export const MEDAL_CY = 48;
+export const MEDAL_R = 44;
+const GAP_X = 24;
+const GAP_Y = 84;
 
 export function layoutTree(personIds: string[], rels: LayoutRel[]) {
   const ids = new Set(personIds);
@@ -101,20 +105,24 @@ export function layoutTree(personIds: string[], rels: LayoutRel[]) {
   const nodes: PositionedNode[] = personIds.map((id) => ({ id, x: x.get(id)!, y: gen.get(id)! * (CARD_H + GAP_Y), gen: gen.get(id)! }));
   const pos = new Map(nodes.map((n) => [n.id, n]));
 
+  const cx = (n: PositionedNode) => n.x + CARD_W / 2;
+  const cy = (n: PositionedNode) => n.y + MEDAL_CY;
+
   const edges: TreeEdge[] = [];
   for (const r of spouseRels) {
     const a = pos.get(r.personA)!;
     const b = pos.get(r.personB)!;
     const [l, rgt] = a.x <= b.x ? [a, b] : [b, a];
-    const y1 = l.y + CARD_H / 2;
     edges.push({
       key: `s:${r.personA}:${r.personB}`,
-      d: `M${l.x + CARD_W},${y1} L${rgt.x},${rgt.y + CARD_H / 2}`,
+      d: `M${cx(l) + MEDAL_R},${cy(l)} L${cx(rgt) - MEDAL_R},${cy(rgt)}`,
       dashed: r.subtype === "divorced",
+      from: [l.id], to: [rgt.id], gen: Math.max(l.gen, rgt.gen),
+      knot: { x: (cx(l) + cx(rgt)) / 2, y: (cy(l) + cy(rgt)) / 2 },
     });
   }
 
-  // Children grouped by their exact set of parents share one connector.
+  // Children grouped by their exact set of parents grow from one point: the couple's knot, or below a lone parent.
   const groups = new Map<string, { parents: string[]; children: { id: string; dashed: boolean }[] }>();
   for (const child of personIds) {
     const parents = [...parentsOf.get(child)!].sort();
@@ -126,20 +134,23 @@ export function layoutTree(personIds: string[], rels: LayoutRel[]) {
   }
   for (const [key, { parents, children }] of groups) {
     const ps = parents.map((p) => pos.get(p)!);
-    const ox = ps.reduce((s, p) => s + p.x + CARD_W / 2, 0) / ps.length;
-    const sameRowPair = ps.length === 2 && ps[0].y === ps[1].y;
-    const oy = sameRowPair ? ps[0].y + CARD_H / 2 : Math.max(...ps.map((p) => p.y)) + CARD_H;
-    const parentBottom = Math.max(...ps.map((p) => p.y)) + CARD_H;
     const cs = children.map((c) => ({ ...c, n: pos.get(c.id)! }));
-    const barY = Math.min(...cs.map((c) => c.n.y)) - GAP_Y / 2;
-    const xs = [ox, ...cs.map((c) => c.n.x + CARD_W / 2)];
-    edges.push({
-      key: `p:${key}`,
-      d: `M${ox},${oy} V${Math.max(barY, parentBottom)} M${Math.min(...xs)},${barY} H${Math.max(...xs)}`,
-      dashed: false,
-    });
+    const ox = ps.reduce((s, p) => s + cx(p), 0) / ps.length;
+    const sy = Math.max(...ps.map((p) => p.y)) + CARD_H + 6; // just below the parents' names
+    if (ps.length === 2 && ps[0].y === ps[1].y) {
+      edges.push({
+        key: `t:${key}`, d: `M${ox},${cy(ps[0])} V${sy}`, dashed: false,
+        from: parents, to: children.map((c) => c.id), gen: Math.min(...cs.map((c) => c.n.gen)),
+      });
+    }
     for (const c of cs) {
-      edges.push({ key: `c:${key}:${c.id}`, d: `M${c.n.x + CARD_W / 2},${barY} V${c.n.y}`, dashed: c.dashed });
+      const tx = cx(c.n);
+      const ty = cy(c.n) - MEDAL_R - 4;
+      const k = (ty - sy) / 2;
+      edges.push({
+        key: `c:${key}:${c.id}`, d: `M${ox},${sy} C${ox},${sy + k} ${tx},${ty - k} ${tx},${ty}`, dashed: c.dashed,
+        from: parents, to: [c.id], gen: c.n.gen,
+      });
     }
   }
 
@@ -147,4 +158,27 @@ export function layoutTree(personIds: string[], rels: LayoutRel[]) {
   const maxX = Math.max(CARD_W, ...nodes.map((n) => n.x + CARD_W));
   const maxY = Math.max(CARD_H, ...nodes.map((n) => n.y + CARD_H));
   return { nodes, edges, bounds: { minX, minY: 0, width: maxX - minX, height: maxY } };
+}
+
+/** The person, their spouses, and everyone above or below them by parent links. */
+export function lineageOf(id: string, rels: LayoutRel[]) {
+  const set = new Set([id]);
+  const climb = (dir: "up" | "down") => {
+    const stack = [id];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const r of rels) {
+        if (r.type !== "parent") continue;
+        const next = dir === "up" ? (r.personB === cur ? r.personA : null) : (r.personA === cur ? r.personB : null);
+        if (next && !set.has(next)) {
+          set.add(next);
+          stack.push(next);
+        }
+      }
+    }
+  };
+  climb("up");
+  climb("down");
+  for (const r of rels) if (r.type === "spouse" && (r.personA === id || r.personB === id)) set.add(r.personA === id ? r.personB : r.personA);
+  return set;
 }

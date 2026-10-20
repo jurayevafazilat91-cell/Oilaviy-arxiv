@@ -4,7 +4,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { interpretSearch } from "../src/lib/ai";
 import { createUpload, completeUpload, writeChunk } from "../src/lib/media/uploads";
 import { addRelationship, redactPerson, savePerson, type Person } from "../src/lib/tree";
-import { layoutTree } from "../src/lib/tree-layout";
+import { layoutTree, lineageOf } from "../src/lib/tree-layout";
 import { drainJobs, fakeServer, jpegFixture, makeUser, read, resetDb, sql } from "./helpers";
 
 let reply: { status: number; body: unknown } = { status: 200, body: {} };
@@ -155,5 +155,17 @@ describe("family tree", () => {
     assert.equal(by.c1.gen, 2);
     const row = nodes.filter((n) => n.gen === 2);
     assert.equal(new Set(row.map((n) => n.x)).size, row.length, "no overlapping cards");
+  });
+
+  test("lineage covers ancestors, descendants and spouses, not in-laws' families", () => {
+    const rels = [
+      { type: "parent", personA: "g", personB: "f", subtype: "biological" },
+      { type: "parent", personA: "g", personB: "u", subtype: "biological" }, // uncle
+      { type: "spouse", personA: "f", personB: "m", subtype: "married" },
+      { type: "parent", personA: "mg", personB: "m", subtype: "biological" }, // mother's father
+      { type: "parent", personA: "f", personB: "c", subtype: "biological" },
+    ] as const;
+    assert.deepEqual([...lineageOf("f", [...rels])].sort(), ["c", "f", "g", "m"]);
+    assert.deepEqual([...lineageOf("c", [...rels])].sort(), ["c", "f", "g"]);
   });
 });

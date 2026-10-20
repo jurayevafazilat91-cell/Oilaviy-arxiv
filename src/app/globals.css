@@ -146,6 +146,22 @@ img.fade-load[data-loaded] {
   to { background-position: -200% 0; }
 }
 
+/* Family tree first paint: medallions bloom and branches draw themselves, one generation after another. */
+.tree-bloom {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tree-bloom 520ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.tree-draw {
+  animation: tree-draw 560ms cubic-bezier(0.645, 0.045, 0.355, 1) both;
+}
+.tree-fade {
+  animation: tree-fade 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes tree-bloom { from { opacity: 0; transform: scale(0.6); } }
+@keyframes tree-draw { from { stroke-dashoffset: 1; } }
+@keyframes tree-fade { from { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   /* Global off switch: every element lands on its final state with no movement, opacity included. */
   *, *::before, *::after, ::backdrop {
