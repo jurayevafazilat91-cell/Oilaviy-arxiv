@@ -121,19 +121,19 @@ const HELP = [
   "/stop — ulanishni uzish.",
 ].join("\n");
 
-type MediaPick = { file: TgFile; name: string; compressed: boolean };
+type MediaPick = { file: TgFile; name: string };
 
 function pickMedia(msg: TgMessage): MediaPick | "unsupported" | null {
   if (msg.photo?.length) {
     const best = msg.photo[msg.photo.length - 1];
-    return { file: best, name: `telegram-${msg.message_id}.jpg`, compressed: true };
+    return { file: best, name: `telegram-${msg.message_id}.jpg` };
   }
-  if (msg.video) return { file: msg.video, name: msg.video.file_name ?? `telegram-${msg.message_id}.mp4`, compressed: false };
+  if (msg.video) return { file: msg.video, name: msg.video.file_name ?? `telegram-${msg.message_id}.mp4` };
   if (msg.document) {
     const name = msg.document.file_name ?? "";
     const mime = msg.document.mime_type ?? "";
     const ok = ALLOWED_EXTENSIONS.includes(extensionOf(name)) || /^(image|video)\//.test(mime);
-    return ok ? { file: msg.document, name: name || `telegram-${msg.message_id}`, compressed: false } : "unsupported";
+    return ok ? { file: msg.document, name: name || `telegram-${msg.message_id}` } : "unsupported";
   }
   if (msg.animation || msg.video_note || msg.sticker) return "unsupported";
   return null;
@@ -209,8 +209,8 @@ async function handleMessage(msg: TgMessage | undefined): Promise<void> {
     return void (await sendMessage(chatId, reply));
   }
 
-  const [link] = await sql<{ userId: string; familyId: string; role: string; photoHintSent: boolean }[]>`
-    select l.user_id, u.family_id, u.role, l.photo_hint_sent
+  const [link] = await sql<{ userId: string; familyId: string; role: string }[]>`
+    select l.user_id, u.family_id, u.role
     from telegram_links l join users u on u.id = l.user_id
     where l.telegram_user_id = ${msg.from.id} and u.disabled_at is null`;
 
@@ -247,11 +247,6 @@ async function handleMessage(msg: TgMessage | undefined): Promise<void> {
     albumId,
     mediaGroupId: msg.media_group_id ?? null,
   }, { dedupeKey: `tg:${chatId}:${msg.message_id}` });
-
-  if (picked.compressed && !link.photoHintSent) {
-    await sql`update telegram_links set photo_hint_sent = true where user_id = ${link.userId}`;
-    await sendMessage(chatId, "Maslahat: rasmni “Fayl” sifatida yuborsangiz, asl sifati saqlanadi. “Rasm” sifatida yuborilganda Telegram uni siqadi.");
-  }
 }
 
 // ---------- Background download + ingest ----------

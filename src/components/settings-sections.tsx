@@ -78,7 +78,7 @@ export function TelegramSection({ linked, linkedAt, botConfigured, canUpload, ma
       </div>
       <ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-dim">
         <li>Botga yuborilgan rasm va videolar avtomatik arxivga tushadi (“Telegram” albomi yoki izohdagi <code>#albom-nomi</code>).</li>
-        <li>“Rasm” sifatida yuborilsa Telegram siqadi; asl sifat uchun “Fayl” sifatida yuboring.</li>
+        <li>Joyni tejash uchun botdan kelgan rasm 2048 px WebP, video 720p qilib siqib saqlanadi, asl nusxa saqlanmaydi. Asl sifat kerak boʻlsa, saytdagi “Yuklash” boʻlimidan yuklang.</li>
         <li>Bot {maxMb} MB gacha faylni qabul qiladi; kattaroq videolarni sayt orqali yuklang.</li>
       </ul>
       {!botConfigured ? (
