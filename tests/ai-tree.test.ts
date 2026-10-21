@@ -1,7 +1,7 @@
 // Gemini is replaced by a local test double (GEMINI_API_BASE in .env.test); this checks our handling, not Google's model.
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
-import { interpretSearch } from "../src/lib/ai";
+import { interpretSearch, queueAiBackfill } from "../src/lib/ai";
 import { createUpload, completeUpload, writeChunk } from "../src/lib/media/uploads";
 import { addRelationship, addSampleRelatives, loadTree, redactPerson, savePerson, setPersonAvatar, type Person } from "../src/lib/tree";
 import { layoutTree, lineageOf } from "../src/lib/tree-layout";
@@ -72,6 +72,28 @@ describe("AI descriptions", () => {
     assert.equal(requests.length, 4, "bounded retries");
     const [media] = await sql`select status from media`;
     assert.equal(media.status, "ready");
+    const [usage] = await sql`select requests from ai_usage where family_id = ${owner.familyId}`;
+    assert.equal(usage.requests, 1, "retries do not use more of the daily budget");
+  });
+
+  test("backfill queues every undescribed photo in one go, once, and they all get described", async () => {
+    const owner = await makeUser("owner");
+    for (const [i, r] of [10, 120, 230].entries()) {
+      const bytes = read(await jpegFixture({ r, g: 60, b: 90 }, `backfill-${i}.jpg`));
+      let up = await createUpload(owner, { fileName: `b${i}.jpg`, size: bytes.length, clientKey: `b${i}`, albumId: null });
+      up = await writeChunk(up, 0, bytes);
+      await completeUpload(up);
+    }
+    await drainJobs(true);
+    await sql`update families set ai_enabled = true`;
+    reply = { status: 200, body: geminiText({ caption: "Bogʻda", tags: ["bogʻ"] }) };
+
+    assert.equal(await queueAiBackfill(owner.familyId), 3);
+    assert.equal(Number((await sql`select count(*) from jobs where type = 'ai_describe' and status = 'queued'`)[0].count), 3);
+    assert.equal(await queueAiBackfill(owner.familyId), 0, "pressing again does not queue them twice");
+    await drainJobs(true);
+    assert.deepEqual((await sql`select ai_status from media`).map((m) => m.aiStatus), ["done", "done", "done"]);
+    assert.equal(requests.length, 3);
   });
 
   test("malformed model output is rejected without retry; daily budget is enforced", async () => {

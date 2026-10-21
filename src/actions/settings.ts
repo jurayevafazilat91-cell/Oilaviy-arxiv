@@ -2,10 +2,10 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { queueAiBackfill } from "@/lib/ai";
 import { assert, canUpload, isAdmin, requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { env } from "@/lib/env";
-import { enqueue } from "@/lib/jobs";
 import { rateLimit } from "@/lib/rate-limit";
 import { createLinkCode } from "@/lib/telegram";
 import { run, UserError } from "./result";
@@ -44,16 +44,9 @@ export async function backfillAiAction() {
     assert(user.role === "owner");
     const [f] = await sql<{ aiEnabled: boolean }[]>`select ai_enabled from families where id = ${user.familyId}`;
     if (!f.aiEnabled) throw new UserError("Avval AI ni yoqing");
-    const rows = await sql<{ id: string }[]>`
-      update media set ai_status = 'pending', ai_error = null
-      where family_id = ${user.familyId} and kind = 'image' and status = 'ready' and deleted_at is null
-        and (ai_status is null or ai_status in ('skipped', 'failed'))
-        and id in (select id from media where family_id = ${user.familyId} and kind = 'image' and status = 'ready'
-                   and deleted_at is null and (ai_status is null or ai_status in ('skipped', 'failed')) limit ${env().AI_DAILY_LIMIT})
-      returning id`;
-    for (const r of rows) await enqueue("ai_describe", { mediaId: r.id }, { dedupeKey: `ai:${r.id}`, maxAttempts: 4 });
+    const queued = await queueAiBackfill(user.familyId);
     refresh();
-    return { queued: rows.length };
+    return { queued };
   });
 }
 

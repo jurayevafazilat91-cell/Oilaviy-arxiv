@@ -95,7 +95,8 @@ export async function aiDescribeJob(job: Job) {
     if (m) await sql`update media set ai_status = 'skipped', ai_error = null where id = ${mediaId}`;
     return;
   }
-  if (!(await takeAiBudget(m.familyId))) {
+  // Charged once per photo: a retry after a 429/503 is not new work and must not eat the family's daily budget.
+  if (job.attempts === 1 && !(await takeAiBudget(m.familyId))) {
     await sql`update media set ai_status = 'skipped', ai_error = 'Kunlik AI limiti tugadi' where id = ${mediaId}`;
     return;
   }
@@ -118,6 +119,28 @@ export async function aiDescribeJob(job: Job) {
     }
     throw err;
   }
+}
+
+/**
+ * Queues the family's photos that have no AI description yet, up to the daily budget. One insert and one drain on
+ * purpose: enqueue() per photo starts a drain per photo, Next runs them all at once, and every Gemini call fires together.
+ */
+export async function queueAiBackfill(familyId: string): Promise<number> {
+  const rows = await sql<{ id: string }[]>`
+    update media set ai_status = 'pending', ai_error = null
+    where family_id = ${familyId} and kind = 'image' and status = 'ready' and deleted_at is null
+      and (ai_status is null or ai_status in ('skipped', 'failed'))
+      and id in (select id from media where family_id = ${familyId} and kind = 'image' and status = 'ready'
+                 and deleted_at is null and (ai_status is null or ai_status in ('skipped', 'failed')) limit ${env().AI_DAILY_LIMIT})
+    returning id`;
+  if (!rows.length) return 0;
+  await sql`
+    insert into jobs (type, payload, dedupe_key, max_attempts)
+    select 'ai_describe', jsonb_build_object('mediaId', id), 'ai:' || id, 4 from unnest(${rows.map((r) => r.id)}::uuid[]) as id
+    on conflict do nothing`;
+  // Imported lazily: worker.ts imports this module.
+  if (process.env.VERCEL) (await import("./worker")).drainAfterResponse();
+  return rows.length;
 }
 
 export const searchIntent = z.object({
