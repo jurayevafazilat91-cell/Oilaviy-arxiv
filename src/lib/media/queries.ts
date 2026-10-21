@@ -9,6 +9,8 @@ export type MediaFilters = {
   yearTo?: number;
   albumId?: string;
   personId?: string;
+  dateFrom?: Date; // inclusive, on the archive date (taken, else uploaded)
+  dateTo?: Date; // exclusive
   trash?: boolean;
   cursor?: string;
   limit?: number;
@@ -33,7 +35,7 @@ const likeEscape = (s: string) => `%${s.replace(/[\\%_]/g, "\\$&")}%`;
 
 // Uzbek writes oʻ/gʻ with whichever apostrophe the keyboard gives (' ’ ‘ ` ʼ ʻ): compare them all as ʻ.
 const APOSTROPHES = "'’‘`ʼ";
-const foldApostrophes = (s: string) => s.replace(/['’‘`ʼ]/g, "ʻ");
+export const foldApostrophes = (s: string) => s.replace(/['’‘`ʼ]/g, "ʻ");
 
 function wordMatch(word: string) {
   const p = likeEscape(foldApostrophes(word));
@@ -73,6 +75,8 @@ export async function listMedia(user: CurrentUser, f: MediaFilters): Promise<{ i
       ${f.kind ? sql`and m.kind = ${f.kind}` : sql``}
       ${f.yearFrom ? sql`and ${sortExpr} >= make_timestamptz(${f.yearFrom}, 1, 1, 0, 0, 0, ${tz})` : sql``}
       ${f.yearTo ? sql`and ${sortExpr} < make_timestamptz(${f.yearTo + 1}, 1, 1, 0, 0, 0, ${tz})` : sql``}
+      ${f.dateFrom ? sql`and ${sortExpr} >= ${f.dateFrom}` : sql``}
+      ${f.dateTo ? sql`and ${sortExpr} < ${f.dateTo}` : sql``}
       ${f.albumId ? sql`and exists (select 1 from album_items ai where ai.media_id = m.id and ai.album_id = ${f.albumId})` : sql``}
       ${f.personId ? sql`and exists (select 1 from media_people mp where mp.media_id = m.id and mp.person_id = ${f.personId})` : sql``}
       ${words.length ? sql`and ${words.map(wordMatch).reduce((a, b) => sql`${a} and ${b}`)}` : sql``}

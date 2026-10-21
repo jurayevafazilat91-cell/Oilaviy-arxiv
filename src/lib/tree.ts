@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sql, type Tx } from "./db";
 import { isAdmin, type CurrentUser } from "./auth";
+import { foldApostrophes } from "./media/queries";
 
 export class TreeError extends Error {}
 
@@ -57,6 +58,29 @@ export const relationshipInput = z.discriminatedUnion("type", [
   }),
 ]);
 export type RelationshipInput = z.infer<typeof relationshipInput>;
+
+/**
+ * When someone born on `birthDate` was `ageFrom`–`ageTo` years old: [from, to). A year- or month-only birth date
+ * widens the window to every possible birthday, so nothing from those ages is missed. UTC days; Tashkent's 5 h is noise here.
+ */
+export function ageWindow(birthDate: string, ageFrom: number, ageTo: number): { from: Date; to: Date } {
+  const [y, m, d] = birthDate.split("-").map(Number);
+  const [firstMonth, lastMonth] = m ? [m - 1, m - 1] : [0, 11];
+  const lastDay = d ?? new Date(Date.UTC(y, lastMonth + 1, 0)).getUTCDate();
+  return {
+    from: new Date(Date.UTC(y + ageFrom, firstMonth, d ?? 1)),
+    to: new Date(Date.UTC(y + ageTo + 1, lastMonth, lastDay)), // the latest possible birthday of age ageTo + 1
+  };
+}
+
+/** People a search names: full or first name, any apostrophe; an inflected form ("Dilfuzani") falls back to a prefix match. */
+export async function findPeopleByName(user: CurrentUser, name: string): Promise<Person[]> {
+  const { people } = await loadTree(user);
+  const norm = (s: string) => foldApostrophes(s).toLowerCase().trim();
+  const n = norm(name);
+  const exact = people.filter((p) => norm(`${p.firstName} ${p.lastName}`) === n || norm(p.firstName) === n);
+  return exact.length ? exact : people.filter((p) => p.firstName.length >= 3 && n.startsWith(norm(p.firstName)));
+}
 
 /** Living people are private: viewers only see the birth year, never places or notes. */
 export function redactPerson(p: Person, viewer: Pick<CurrentUser, "role">): Person {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { interpretSearch, queueAiBackfill } from "../src/lib/ai";
 import { createUpload, completeUpload, writeChunk } from "../src/lib/media/uploads";
-import { addRelationship, addSampleRelatives, loadTree, redactPerson, savePerson, setPersonAvatar, type Person } from "../src/lib/tree";
+import { addRelationship, addSampleRelatives, ageWindow, loadTree, redactPerson, savePerson, setPersonAvatar, type Person } from "../src/lib/tree";
 import { layoutTree, lineageOf } from "../src/lib/tree-layout";
 import { drainJobs, fakeServer, jpegFixture, makeUser, read, resetDb, sql } from "./helpers";
 
@@ -115,7 +115,11 @@ describe("AI descriptions", () => {
   test("search intent output is clamped to safe filters", async () => {
     reply = { status: 200, body: geminiText({ keywords: ["Dengiz", "plyaj"], kind: "spaceship", yearFrom: 2019, yearTo: 99999 }) };
     const intent = await interpretSearch("2019-yil dengizdagi rasmlar");
-    assert.deepEqual(intent, { keywords: ["dengiz", "plyaj"], kind: "any", yearFrom: 2019, yearTo: null });
+    assert.deepEqual(intent, { keywords: ["dengiz", "plyaj"], kind: "any", yearFrom: 2019, yearTo: null, person: null, ageFrom: null, ageTo: null });
+
+    reply = { status: 200, body: geminiText({ keywords: [], kind: "image", yearFrom: null, yearTo: null, person: "  ", ageFrom: 300, ageTo: 7 }) };
+    const odd = await interpretSearch("…");
+    assert.deepEqual([odd.person, odd.ageFrom, odd.ageTo], [null, null, 7], "blank name and impossible ages are dropped");
   });
 });
 
@@ -175,6 +179,13 @@ describe("family tree", () => {
 
     const other = await makeUser("admin");
     await assert.rejects(addRelationship(other, { type: "parent", parentId: grand, childId: step, subtype: "biological" }), /topilmadi/);
+  });
+
+  test("age window covers every possible birthday of a partial birth date", () => {
+    const iso = (w: { from: Date; to: Date }) => [w.from.toISOString().slice(0, 10), w.to.toISOString().slice(0, 10)];
+    assert.deepEqual(iso(ageWindow("2010-05-01", 7, 7)), ["2017-05-01", "2018-05-01"], "exact date: from the 7th to the 8th birthday");
+    assert.deepEqual(iso(ageWindow("2010", 7, 7)), ["2017-01-01", "2018-12-31"], "year only: born any day of 2010");
+    assert.deepEqual(iso(ageWindow("2012-02", 5, 6)), ["2017-02-01", "2019-03-01"], "month only: born up to 29 Feb 2012, who turns 7 on 1 Mar 2019");
   });
 
   test("partial dates are validated", async () => {

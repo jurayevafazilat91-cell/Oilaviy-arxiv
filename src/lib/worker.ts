@@ -6,11 +6,12 @@ import { sql } from "./db";
 import { runOneJob, type JobHandler } from "./jobs";
 import { purgeMedia, tmpDir } from "./media/ingest";
 import { discardUploadData, processUploadJob } from "./media/uploads";
-import { telegramIngestJob } from "./telegram";
+import { telegramIngestJob, telegramSearchJob } from "./telegram";
 
 export const handlers: Record<string, JobHandler> = {
   process_upload: processUploadJob,
   telegram_ingest: telegramIngestJob,
+  telegram_search: telegramSearchJob,
   ai_describe: aiDescribeJob,
   purge_media: async (job) => purgeMedia(String(job.payload.mediaId)),
 };

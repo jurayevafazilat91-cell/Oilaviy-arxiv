@@ -29,7 +29,9 @@ before(async () => {
       return;
     }
     const method = /^\/bottest-token\/(\w+)$/.exec(url)?.[1] ?? "?";
-    const parsed = body.length ? JSON.parse(body.toString()) : {};
+    // File uploads arrive as multipart; keep them as text so a test can look for the attached file names.
+    const isJson = (req.headers["content-type"] ?? "").includes("json");
+    const parsed = !body.length ? {} : isJson ? JSON.parse(body.toString()) : { multipart: body.toString("latin1") };
     calls.push({ method, body: parsed });
     const result = method === "getFile" ? { file_id: parsed.file_id, file_path: `photos/${parsed.file_id}.jpg` } : true;
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true, result }));
@@ -196,6 +198,55 @@ describe("ingestion", () => {
     await handleUpdate(photo("y"));
     assert.match(replies().at(-1)!, /huquqi yoʻq/);
     assert.equal((await sql`select 1 from jobs`).length, 0);
+  });
+
+  test("plain text searches the archive (no AI) and sends the found photo back", async () => {
+    await linkedMember();
+    files.set("photos/s1.jpg", read(await jpegFixture({ r: 220, g: 20, b: 20 }, "search-1.jpg")));
+    await handleUpdate(photo("s1"));
+    await drainJobs();
+    await sql`update media set title = 'Toʻy kuni'`;
+
+    await handleUpdate(msg({ text: "to'y" }));
+    await drainJobs();
+    const sent = calls.find((c) => c.method === "sendPhoto");
+    assert.match(String(sent?.body.multipart), /name="photo"; filename="f0\.jpg"/);
+    assert.match(replies().at(-1)!, /1 ta topildi\. Saytda: http:\/\/localhost:3000\/\?q=to%27y/);
+  });
+
+  test("“Dilfuzaning 7 yoshdagi rasmlari” sends only the photos tagged with her from when she was 7", async () => {
+    const { user } = await linkedMember();
+    for (const id of ["a7", "a9"]) {
+      files.set(`photos/${id}.jpg`, read(await jpegFixture({ r: id === "a7" ? 30 : 200, g: 90, b: 160 }, `age-${id}.jpg`)));
+      await handleUpdate(photo(id));
+    }
+    await drainJobs();
+    const [dilfuza] = await sql`insert into people (family_id, first_name, last_name, birth_date, is_living)
+      values (${user.familyId}, 'Dilfuza', 'Jurayeva', '2010-05-01', true) returning id`;
+    const media = await sql`select id from media order by created_at`;
+    await sql`update media set taken_at = '2017-08-01T12:00:00Z' where id = ${media[0].id}`; // 7 years old
+    await sql`update media set taken_at = '2019-08-01T12:00:00Z' where id = ${media[1].id}`; // 9 years old
+    await sql`insert into media_people (media_id, person_id) select id, ${dilfuza.id} from media`;
+    await sql`update families set ai_enabled = true`;
+
+    let intent: Record<string, unknown> = {};
+    const gemini = await fakeServer(45998, (_req, _body, res) => res.end(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(intent) }] } }],
+    })));
+    try {
+      intent = { keywords: ["rasm"], kind: "any", yearFrom: null, yearTo: null, person: "Dilfuzaning", ageFrom: 7, ageTo: 7 };
+      await handleUpdate(msg({ text: "Dilfuzaning 7 yoshdagi rasmlari" }));
+      await drainJobs();
+      assert.equal(calls.filter((c) => c.method === "sendPhoto").length, 1, "only the photo from age 7");
+      assert.match(replies().at(-1)!, new RegExp(`^Dilfuza Jurayeva · 7 yosh: 1 ta topildi\\. Saytda: .*/people/${dilfuza.id}$`));
+
+      intent = { ...intent, person: "Bobur" };
+      await handleUpdate(msg({ text: "Boburning rasmlari" }));
+      await drainJobs();
+      assert.match(replies().at(-1)!, /“Bobur” ismli odam oila daraxtida topilmadi/);
+    } finally {
+      await gemini.close();
+    }
   });
 
   test("webhook rejects requests without the secret header", async () => {

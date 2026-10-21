@@ -3,12 +3,20 @@ import { copyFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import sharp from "sharp";
+import { interpretSearch } from "./ai";
+import type { CurrentUser } from "./auth";
 import { sql } from "./db";
 import { env, MB } from "./env";
 import { randomCode, sha256 } from "./crypto";
 import { enqueue, isFinalAttempt, PermanentError, type Job } from "./jobs";
+import { personName } from "./format";
 import { ingestFile, markIngestFailed, tmpDir } from "./media/ingest";
+import { listMedia, type MediaFilters, type MediaItem } from "./media/queries";
 import { ALLOWED_EXTENSIONS, extensionOf } from "./media/sniff";
+import { rateLimit } from "./rate-limit";
+import { mediaKey, storage } from "./storage";
+import { ageWindow, findPeopleByName } from "./tree";
 
 // ---------- Bot API client ----------
 
@@ -25,15 +33,24 @@ const redact = (s: string) => {
   return token ? s.replaceAll(token, "<token>") : s;
 };
 
-export async function tg<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = 30_000): Promise<T> {
+type TgUpload = { field: string; data: Buffer; type: string; filename: string };
+
+/** Calls the Bot API; with `files` the request goes as multipart and each file is referenced as `attach://<field>`. */
+export async function tg<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = 30_000, files: TgUpload[] = []): Promise<T> {
   const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_API_BASE: base } = env();
   if (!token) throw new TelegramApiError("TELEGRAM_BOT_TOKEN sozlanmagan");
+  let body: string | FormData = JSON.stringify(params);
+  if (files.length) {
+    body = new FormData();
+    for (const [k, v] of Object.entries(params)) body.append(k, typeof v === "string" ? v : JSON.stringify(v));
+    for (const f of files) body.append(f.field, new Blob([new Uint8Array(f.data)], { type: f.type }), f.filename);
+  }
   let res: Response;
   try {
     res = await fetch(`${base}/bot${token}/${method}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
+      headers: files.length ? undefined : { "Content-Type": "application/json" },
+      body,
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
@@ -111,13 +128,15 @@ async function linkAccount(code: string, telegramUserId: number, chatId: number)
 // ---------- Incoming updates ----------
 
 const HELP = [
-  "Bu bot rasm va videolaringizni oilaviy arxivga saqlaydi.",
+  "Bu bot rasm va videolaringizni oilaviy arxivga saqlaydi va arxivdan qidiradi.",
   "",
   "1. Saytda Sozlamalar → Telegram boʻlimidan ulanish kodini oling.",
   "2. Shu yerga rasm, video yoki fayl yuboring.",
   "",
   "Albom tanlash: izohga #albom-nomi yozing (masalan #toy-2024). Aks holda fayl “Telegram” albomiga tushadi.",
-  "Sifat: “Rasm” sifatida yuborilsa Telegram uni siqadi. Asl sifatni saqlash uchun “Fayl” sifatida yuboring.",
+  "Joyni tejash uchun rasm 2048 px, video 720p qilib siqib saqlanadi.",
+  "",
+  "Qidirish: oddiy gap yozing, masalan “2023-yil dengizdagi rasmlar” yoki “Dilfuzaning 7 yoshdagi rasm va videolari”.",
   "/stop — ulanishni uzish.",
 ].join("\n");
 
@@ -222,7 +241,11 @@ async function handleMessage(msg: TgMessage | undefined): Promise<void> {
 
   const picked = pickMedia(msg);
   if (!picked) {
-    if (text) await sendMessage(chatId, link ? "Rasm yoki video yuboring. Yordam: /help" : HELP);
+    if (!text) return;
+    if (!link || text.startsWith("/")) return void (await sendMessage(chatId, HELP));
+    // Plain text searches the family archive; the files go out from a job, after this webhook has answered.
+    await enqueue("telegram_search", { chatId, messageId: msg.message_id, userId: link.userId, text: text.slice(0, 200) },
+      { dedupeKey: `tgs:${chatId}:${msg.message_id}`, maxAttempts: 1 }); // one attempt: a retry would send the files twice
     return;
   }
   if (!link) return void (await sendMessage(chatId, "Avval akkauntni ulang: saytda Sozlamalar → Telegram.", msg.message_id));
@@ -318,5 +341,115 @@ export async function telegramIngestJob(job: Job) {
     throw err;
   } finally {
     await rm(file, { force: true });
+  }
+}
+
+// ---------- Search from the chat ----------
+
+const SEARCH_LIMIT = 10; // one Telegram album
+const MAX_VIDEO_SEND = 20 * MB; // a bigger video goes as its poster, with the site link below
+
+type ChatSearch = { filters: MediaFilters; label: string; link: string };
+
+/** Turns the chat text into archive filters, the same way as the site's AI search; a string is a reply to send instead. */
+async function chatSearch(user: CurrentUser, text: string): Promise<ChatSearch | string> {
+  const [family] = await sql<{ aiEnabled: boolean }[]>`select ai_enabled from families where id = ${user.familyId}`;
+  const useAi = family.aiEnabled && Boolean(env().GEMINI_API_KEY) && rateLimit(`aisearch:${user.id}`, 30, 60_000);
+  const intent = useAi ? await interpretSearch(text).catch(() => null) : null;
+  const link = new URL(env().APP_URL);
+  if (!intent) {
+    link.searchParams.set("q", text);
+    return { filters: { q: text }, label: `“${text}”`, link: link.href };
+  }
+
+  const filters: MediaFilters = {
+    kind: intent.kind === "any" ? undefined : intent.kind,
+    yearFrom: intent.yearFrom ?? undefined,
+    yearTo: intent.yearTo ?? undefined,
+  };
+  if (!intent.person) {
+    filters.keywords = intent.keywords;
+    link.searchParams.set("ai", text);
+    for (const k of intent.keywords) link.searchParams.append("kw", k);
+    if (filters.yearFrom) link.searchParams.set("from", String(filters.yearFrom));
+    if (filters.yearTo) link.searchParams.set("to", String(filters.yearTo));
+    if (filters.kind) link.searchParams.set("kind", filters.kind);
+    return { filters, label: `“${text}”`, link: link.href };
+  }
+
+  // A named person: their tagged files, not keyword matches (a caption rarely says "Dilfuza").
+  const people = await findPeopleByName(user, intent.person);
+  if (!people.length) return `“${intent.person}” ismli odam oila daraxtida topilmadi. Uni daraxtga qoʻshing va rasmlarda belgilang.`;
+  if (people.length > 1) return `Bu ismli bir nechta odam bor: ${people.map(personName).join(", ")}. Familiyasi bilan yozing.`;
+  const [person] = people;
+  filters.personId = person.id;
+  link.pathname = `/people/${person.id}`;
+  let label = personName(person);
+  if (intent.ageFrom != null || intent.ageTo != null) {
+    if (!person.birthDate) return `${personName(person)}ning tugʻilgan sanasi daraxtda yoʻq, yoshini hisoblab boʻlmaydi. Sanani daraxtda kiriting.`;
+    const [from, to] = [intent.ageFrom ?? intent.ageTo!, intent.ageTo ?? intent.ageFrom!].sort((a, b) => a - b);
+    const window = ageWindow(person.birthDate, from, to);
+    filters.dateFrom = window.from;
+    filters.dateTo = window.to;
+    label += from === to ? ` · ${from} yosh` : ` · ${from}–${to} yosh`;
+  }
+  return { filters, label, link: link.href };
+}
+
+const readStored = async (key: string) => {
+  const obj = await storage().get(key);
+  return obj ? Buffer.from(await new Response(obj.body).arrayBuffer()) : null;
+};
+
+type ChatFile = { media: { type: "photo" | "video"; media: string; caption?: string; supports_streaming?: boolean }; file: TgUpload };
+
+/** One file for the chat: a playable video when small enough, otherwise a JPEG of the photo or of the video's poster. */
+async function chatFile(familyId: string, m: MediaItem, field: string): Promise<ChatFile | null> {
+  if (m.kind === "video") {
+    const key = mediaKey(familyId, m.id, m.variants.includes("playback") ? "playback" : "original");
+    const size = await storage().size(key);
+    const data = size && size <= MAX_VIDEO_SEND ? await readStored(key) : null;
+    if (data) {
+      return { media: { type: "video", media: `attach://${field}`, supports_streaming: true }, file: { field, data, type: "video/mp4", filename: `${field}.mp4` } };
+    }
+  }
+  const src = await readStored(mediaKey(familyId, m.id, m.variants.includes("preview") ? "preview" : "original"));
+  if (!src) return null;
+  const data = await sharp(src).resize(1280, 1280, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+  const media: ChatFile["media"] = { type: "photo", media: `attach://${field}` };
+  if (m.kind === "video") media.caption = "▶️ Video katta, saytda koʻring";
+  return { media, file: { field, data, type: "image/jpeg", filename: `${field}.jpg` } };
+}
+
+export async function telegramSearchJob(job: Job) {
+  const p = job.payload as { chatId: number; messageId: number; userId: string; text: string };
+  const reply = (text: string) => sendMessage(p.chatId, text, p.messageId);
+  try {
+    const [user] = await sql<CurrentUser[]>`
+      select u.id, u.family_id, f.name as family_name, u.name, u.email, u.role, u.is_tree_editor
+      from users u join families f on f.id = u.family_id where u.id = ${p.userId} and u.disabled_at is null`;
+    if (!user) return;
+    await tg("sendChatAction", { chat_id: p.chatId, action: "upload_photo" }).catch(() => {});
+    const search = await chatSearch(user, p.text);
+    if (typeof search === "string") return void (await reply(search));
+
+    const { items, nextCursor } = await listMedia(user, { ...search.filters, limit: SEARCH_LIMIT });
+    const ready = items.filter((m) => m.status === "ready");
+    if (!ready.length) {
+      return void (await reply(`${search.label}: hech narsa topilmadi. Rasm sanasi yoki belgilangan odamlar notoʻgʻri boʻlsa, saytda tuzating.`));
+    }
+    const parts = (await Promise.all(ready.map((m, i) => chatFile(user.familyId, m, `f${i}`)))).filter((x) => x !== null);
+    if (parts.length === 1) {
+      // A single file cannot be an album; sendPhoto/sendVideo take it under the field named after its type.
+      const [{ media, file }] = parts;
+      await tg(media.type === "photo" ? "sendPhoto" : "sendVideo", { chat_id: p.chatId, ...(media.caption ? { caption: media.caption } : {}) },
+        120_000, [{ ...file, field: media.type }]);
+    } else if (parts.length > 1) {
+      await tg("sendMediaGroup", { chat_id: p.chatId, media: parts.map((x) => x.media) }, 120_000, parts.map((x) => x.file));
+    }
+    await reply(`${search.label}: ${ready.length}${nextCursor ? "+" : ""} ta topildi. ${nextCursor ? "Hammasi" : "Saytda"}: ${search.link}`);
+  } catch (err) {
+    console.error("telegram search:", (err as Error).message);
+    await reply("Qidirishda xato yuz berdi. Birozdan keyin qayta urinib koʻring.");
   }
 }
